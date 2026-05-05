@@ -13,6 +13,7 @@
 #include <GLFW/glfw3.h>
 
 #include "app/app.h"
+#include "core/platform.h"
 
 #include <algorithm>
 #include <chrono>
@@ -21,6 +22,10 @@
 
 struct WindowState {
     bool needsRender = true;
+    bool trayAvailable = false;
+    bool hiddenToTray = false;
+    bool hideToTrayRequested = false;
+    bool forceClose = false;
     int renderedFrames = 0;
     double lastTitleUpdate = 0.0;
     double nextFrameTime = 0.0;
@@ -149,6 +154,34 @@ void waitForNextFrame(GLFWwindow* window, const WindowState& windowState) {
     }
 }
 
+void hideWindowToTray(GLFWwindow* window, WindowState& windowState) {
+    if (!windowState.trayAvailable || windowState.hiddenToTray) {
+        return;
+    }
+
+    app::releaseGraphicsResources();
+    glfwHideWindow(window);
+    windowState.hiddenToTray = true;
+    windowState.hideToTrayRequested = false;
+    windowState.needsRender = false;
+    windowState.renderedFrames = 0;
+    windowState.nextFrameTime = glfwGetTime();
+}
+
+void restoreWindowFromTray(GLFWwindow* window, WindowState& windowState) {
+    if (!windowState.hiddenToTray) {
+        return;
+    }
+
+    glfwRestoreWindow(window);
+    glfwShowWindow(window);
+    glfwFocusWindow(window);
+    windowState.hiddenToTray = false;
+    windowState.hideToTrayRequested = false;
+    windowState.needsRender = true;
+    windowState.nextFrameTime = glfwGetTime();
+}
+
 int main() {
     glfwInit();
     TimerResolutionGuard timerResolution;
@@ -203,10 +236,48 @@ int main() {
         glfwTerminate();
         return -1;
     }
+    if (app::trayEnabled()) {
+        windowState.trayAvailable = core::platform::initializeTray({
+            app::trayTitle(),
+            app::trayIconPath()
+        });
+    }
+    glfwSetWindowCloseCallback(window, [](GLFWwindow* currentWindow) {
+        WindowState* state = static_cast<WindowState*>(glfwGetWindowUserPointer(currentWindow));
+        if (state && state->trayAvailable && !state->forceClose) {
+            state->hideToTrayRequested = true;
+            glfwSetWindowShouldClose(currentWindow, GLFW_FALSE);
+        }
+    });
+    glfwSetWindowIconifyCallback(window, [](GLFWwindow* currentWindow, int iconified) {
+        WindowState* state = static_cast<WindowState*>(glfwGetWindowUserPointer(currentWindow));
+        if (state && state->trayAvailable && iconified && !state->forceClose) {
+            state->hideToTrayRequested = true;
+        }
+    });
 
     double lastFrameTime = glfwGetTime();
 
     while (!glfwWindowShouldClose(window)) {
+        core::platform::pollTray(false);
+        if (core::platform::consumeTrayExitRequested()) {
+            windowState.forceClose = true;
+            glfwSetWindowShouldClose(window, GLFW_TRUE);
+            break;
+        }
+        if (core::platform::consumeTrayShowRequested()) {
+            restoreWindowFromTray(window, windowState);
+        }
+        if (windowState.hideToTrayRequested) {
+            hideWindowToTray(window, windowState);
+        }
+        if (windowState.hiddenToTray) {
+            glfwWaitEventsTimeout(0.10);
+            lastFrameTime = glfwGetTime();
+            windowState.nextFrameTime = lastFrameTime;
+            continue;
+        }
+
         const bool animatingAtFrameStart = app::isAnimating();
         if (animatingAtFrameStart) {
             waitForNextFrame(window, windowState);
@@ -218,8 +289,12 @@ int main() {
         lastFrameTime = currentFrameTime;
 
         if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
-            glfwSetWindowShouldClose(window, 1);
-            break;
+            if (windowState.trayAvailable) {
+                windowState.hideToTrayRequested = true;
+            } else {
+                glfwSetWindowShouldClose(window, 1);
+                break;
+            }
         }
 
         int framebufferWidth = 0;
@@ -271,6 +346,7 @@ int main() {
         }
     }
 
+    core::platform::shutdownTray();
     app::shutdown();
     glfwTerminate();
     return 0;

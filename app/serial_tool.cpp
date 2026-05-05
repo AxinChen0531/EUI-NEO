@@ -675,7 +675,8 @@ const DslAppConfig& dslAppConfig() {
         .pageId("serial_tool")
         .clearColor(kBackground)
         .windowSize(1440, 1080)
-        .fps(90.0);
+        .fps(90.0)
+        .tray(true);
     return config;
 }
 

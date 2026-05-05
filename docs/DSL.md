@@ -63,6 +63,8 @@ static const DslAppConfig config = DslAppConfig{}
     .textFont("YouSheBiaoTiHei-2.ttf");
 ```
 
+托盘后台运行默认关闭。需要托盘的页面可以在 `DslAppConfig` 中显式调用 `.tray(true)`，例如串口工具。启用托盘后，关闭或最小化窗口会隐藏到托盘并释放图形资源；托盘 `Show` 会重新显示窗口，`Exit` 才真正退出。
+
 不设置 `.textFont(...)` 时使用 `core/text.cpp` 顶部的全局默认文本字体；不设置 `.iconFont(...)` 时使用全局默认图标字体。
 
 ## 布局 DSL

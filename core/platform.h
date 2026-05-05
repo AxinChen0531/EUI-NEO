@@ -4,6 +4,17 @@
 
 namespace core::platform {
 
+struct TrayOptions {
+    std::string tooltip;
+    std::string iconPath;
+};
+
 bool openUrl(const std::string& url);
+bool initializeTray(const TrayOptions& options);
+bool isTrayInitialized();
+void pollTray(bool blocking = false);
+bool consumeTrayShowRequested();
+bool consumeTrayExitRequested();
+void shutdownTray();
 
 } // namespace core::platform

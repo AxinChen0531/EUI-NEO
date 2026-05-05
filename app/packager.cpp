@@ -139,6 +139,16 @@ GLFWwindowcontentscalefun eui_box_glfwSetWindowContentScaleCallback(GLFWwindow* 
     return fn(window, callback);
 }
 
+GLFWwindowclosefun eui_box_glfwSetWindowCloseCallback(GLFWwindow* window, GLFWwindowclosefun callback) {
+    static auto fn = eui_box_glfw_bridge::load<decltype(&::glfwSetWindowCloseCallback)>("glfwSetWindowCloseCallback");
+    return fn(window, callback);
+}
+
+GLFWwindowiconifyfun eui_box_glfwSetWindowIconifyCallback(GLFWwindow* window, GLFWwindowiconifyfun callback) {
+    static auto fn = eui_box_glfw_bridge::load<decltype(&::glfwSetWindowIconifyCallback)>("glfwSetWindowIconifyCallback");
+    return fn(window, callback);
+}
+
 GLFWglproc eui_box_glfwGetProcAddress(const char* name) {
     static auto fn = eui_box_glfw_bridge::load<decltype(&::glfwGetProcAddress)>("glfwGetProcAddress");
     return fn(name);
@@ -157,6 +167,26 @@ int eui_box_glfwGetKey(GLFWwindow* window, int key) {
 void eui_box_glfwSetWindowShouldClose(GLFWwindow* window, int value) {
     static auto fn = eui_box_glfw_bridge::load<decltype(&::glfwSetWindowShouldClose)>("glfwSetWindowShouldClose");
     fn(window, value);
+}
+
+void eui_box_glfwHideWindow(GLFWwindow* window) {
+    static auto fn = eui_box_glfw_bridge::load<decltype(&::glfwHideWindow)>("glfwHideWindow");
+    fn(window);
+}
+
+void eui_box_glfwShowWindow(GLFWwindow* window) {
+    static auto fn = eui_box_glfw_bridge::load<decltype(&::glfwShowWindow)>("glfwShowWindow");
+    fn(window);
+}
+
+void eui_box_glfwRestoreWindow(GLFWwindow* window) {
+    static auto fn = eui_box_glfw_bridge::load<decltype(&::glfwRestoreWindow)>("glfwRestoreWindow");
+    fn(window);
+}
+
+void eui_box_glfwFocusWindow(GLFWwindow* window) {
+    static auto fn = eui_box_glfw_bridge::load<decltype(&::glfwFocusWindow)>("glfwFocusWindow");
+    fn(window);
 }
 
 void eui_box_glfwGetFramebufferSize(GLFWwindow* window, int* width, int* height) {
@@ -302,10 +332,16 @@ decltype(&::glfwGetWindowUserPointer) __imp_glfwGetWindowUserPointer = eui_box_g
 decltype(&::glfwSetFramebufferSizeCallback) __imp_glfwSetFramebufferSizeCallback = eui_box_glfwSetFramebufferSizeCallback;
 decltype(&::glfwSetWindowRefreshCallback) __imp_glfwSetWindowRefreshCallback = eui_box_glfwSetWindowRefreshCallback;
 decltype(&::glfwSetWindowContentScaleCallback) __imp_glfwSetWindowContentScaleCallback = eui_box_glfwSetWindowContentScaleCallback;
+decltype(&::glfwSetWindowCloseCallback) __imp_glfwSetWindowCloseCallback = eui_box_glfwSetWindowCloseCallback;
+decltype(&::glfwSetWindowIconifyCallback) __imp_glfwSetWindowIconifyCallback = eui_box_glfwSetWindowIconifyCallback;
 decltype(&::glfwGetProcAddress) __imp_glfwGetProcAddress = eui_box_glfwGetProcAddress;
 decltype(&::glfwWindowShouldClose) __imp_glfwWindowShouldClose = eui_box_glfwWindowShouldClose;
 decltype(&::glfwGetKey) __imp_glfwGetKey = eui_box_glfwGetKey;
 decltype(&::glfwSetWindowShouldClose) __imp_glfwSetWindowShouldClose = eui_box_glfwSetWindowShouldClose;
+decltype(&::glfwHideWindow) __imp_glfwHideWindow = eui_box_glfwHideWindow;
+decltype(&::glfwShowWindow) __imp_glfwShowWindow = eui_box_glfwShowWindow;
+decltype(&::glfwRestoreWindow) __imp_glfwRestoreWindow = eui_box_glfwRestoreWindow;
+decltype(&::glfwFocusWindow) __imp_glfwFocusWindow = eui_box_glfwFocusWindow;
 decltype(&::glfwGetFramebufferSize) __imp_glfwGetFramebufferSize = eui_box_glfwGetFramebufferSize;
 decltype(&::glfwGetWindowContentScale) __imp_glfwGetWindowContentScale = eui_box_glfwGetWindowContentScale;
 decltype(&::glfwGetWindowSize) __imp_glfwGetWindowSize = eui_box_glfwGetWindowSize;

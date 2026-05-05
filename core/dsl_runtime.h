@@ -186,26 +186,7 @@ public:
     }
 
     void shutdown() {
-        for (auto& item : rects_) {
-            if (item.second.initialized) {
-                item.second.primitive->destroy();
-            }
-        }
-        for (auto& item : polygons_) {
-            if (item.second.initialized) {
-                item.second.primitive->destroy();
-            }
-        }
-        for (auto& item : texts_) {
-            if (item.second.initialized) {
-                item.second.primitive->destroy();
-            }
-        }
-        for (auto& item : images_) {
-            if (item.second.initialized) {
-                item.second.primitive->destroy();
-            }
-        }
+        releaseGraphicsResources();
         rects_.clear();
         polygons_.clear();
         texts_.clear();
@@ -216,9 +197,38 @@ public:
         dependentVisualStates_.clear();
         frameTargets_.clear();
         elementStructure_.clear();
+    }
+
+    void releaseGraphicsResources() {
+        for (auto& item : rects_) {
+            if (item.second.initialized) {
+                item.second.primitive->destroy();
+                item.second.initialized = false;
+            }
+        }
+        for (auto& item : polygons_) {
+            if (item.second.initialized) {
+                item.second.primitive->destroy();
+                item.second.initialized = false;
+            }
+        }
+        for (auto& item : texts_) {
+            if (item.second.initialized) {
+                item.second.primitive->destroy();
+                item.second.initialized = false;
+            }
+        }
+        for (auto& item : images_) {
+            if (item.second.initialized) {
+                item.second.primitive->destroy();
+                item.second.initialized = false;
+            }
+        }
         ImagePrimitive::releaseCachedTextures();
         releaseRenderCache();
         destroyCursors();
+        fullRedraw_ = true;
+        needsRender_ = true;
     }
 
 private:

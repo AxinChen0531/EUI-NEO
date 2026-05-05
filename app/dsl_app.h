@@ -26,6 +26,9 @@ struct DslAppConfig {
     const char* iconPathValue = "assets/icon.png";
     const char* textFontFileValue = "";
     const char* iconFontFileValue = "";
+    bool trayEnabledValue = false;
+    const char* trayTitleValue = "";
+    const char* trayIconPathValue = "";
 
     DslAppConfig& title(const char* value) { titleValue = value; return *this; }
     DslAppConfig& pageId(const char* value) { pageIdValue = value; return *this; }
@@ -49,6 +52,18 @@ struct DslAppConfig {
     DslAppConfig& fonts(const char* textFont, const char* iconFont = "") {
         textFontFileValue = textFont;
         iconFontFileValue = iconFont;
+        return *this;
+    }
+    DslAppConfig& tray(bool value = true) {
+        trayEnabledValue = value;
+        return *this;
+    }
+    DslAppConfig& trayTitle(const char* value) {
+        trayTitleValue = value;
+        return *this;
+    }
+    DslAppConfig& trayIcon(const char* value) {
+        trayIconPathValue = value;
         return *this;
     }
 };
@@ -152,6 +167,24 @@ int initialWindowHeight() {
     return dslAppConfig().windowHeightValue;
 }
 
+bool trayEnabled() {
+    return dslAppConfig().trayEnabledValue;
+}
+
+const char* trayTitle() {
+    const DslAppConfig& config = dslAppConfig();
+    return (config.trayTitleValue != nullptr && config.trayTitleValue[0] != '\0')
+        ? config.trayTitleValue
+        : config.titleValue;
+}
+
+const char* trayIconPath() {
+    const DslAppConfig& config = dslAppConfig();
+    return (config.trayIconPathValue != nullptr && config.trayIconPathValue[0] != '\0')
+        ? config.trayIconPathValue
+        : config.iconPathValue;
+}
+
 bool initialize(GLFWwindow* window) {
     const DslAppConfig& config = dslAppConfig();
     core::TextPrimitive::setDefaultFontFiles(
@@ -217,6 +250,10 @@ void render(int windowWidth, int windowHeight, float dpiScale) {
 
     const core::Color clearColor = dslAppConfig().clearColorValue;
     detail::dslRuntime().render(windowWidth, windowHeight, dpiScale, clearColor);
+}
+
+void releaseGraphicsResources() {
+    detail::dslRuntime().releaseGraphicsResources();
 }
 
 void shutdown() {

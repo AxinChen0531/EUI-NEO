@@ -12,10 +12,14 @@ bool showFrameCountInTitle();
 double frameRateLimit();
 int initialWindowWidth();
 int initialWindowHeight();
+bool trayEnabled();
+const char* trayTitle();
+const char* trayIconPath();
 bool initialize(GLFWwindow* window);
 bool update(GLFWwindow* window, float deltaSeconds, int windowWidth, int windowHeight, float dpiScale, float pointerScale);
 bool isAnimating();
 void render(int windowWidth, int windowHeight, float dpiScale);
+void releaseGraphicsResources();
 void shutdown();
 
 } // namespace app

@@ -486,6 +486,13 @@ void TextPrimitive::destroy() {
     colorLocation_ = -1;
     textureLocation_ = -1;
     fontInfoStorage_.reset();
+    glyphs_.clear();
+    lines_.clear();
+    vertices_.clear();
+    measuredSize_ = {};
+    layoutDirty_ = true;
+    verticesDirty_ = true;
+    fontDirty_ = true;
 }
 
 void TextPrimitive::setPosition(float x, float y) {
