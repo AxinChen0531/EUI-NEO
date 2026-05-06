@@ -131,6 +131,13 @@ private:
         int day = 1;
     };
 
+    struct WheelItemVisual {
+        float opacity = 1.0f;
+        float translateY = 0.0f;
+        float scaleX = 1.0f;
+        float scaleY = 1.0f;
+    };
+
     static DragState& dragStateFor(const std::string& id) {
         static std::unordered_map<std::string, DragState> states;
         return states[id];
@@ -240,6 +247,21 @@ private:
         const float scale = columnHeight > 0.0f ? bounds.height / columnHeight : 1.0f;
         const float localY = static_cast<float>((pointerY - bounds.y) / std::max(0.001f, scale));
         return std::clamp(static_cast<int>(std::round((localY - columnHeight * 0.5f) / rowHeight)), -3, 3);
+    }
+
+    static WheelItemVisual wheelItemVisual(int offset, bool hidden) {
+        if (hidden) {
+            return {0.0f, 0.0f, 1.0f, 1.0f};
+        }
+        const int distance = offset < 0 ? -offset : offset;
+        const float distanceAmount = static_cast<float>(distance);
+        const float direction = offset < 0 ? -1.0f : (offset > 0 ? 1.0f : 0.0f);
+        return {
+            std::clamp(1.0f - distanceAmount * 0.25f, 0.48f, 1.0f),
+            -direction * distanceAmount * distanceAmount * 2.4f,
+            std::clamp(1.0f - distanceAmount * 0.015f, 0.95f, 1.0f),
+            std::clamp(1.0f - distanceAmount * 0.120f, 0.72f, 1.0f)
+        };
     }
 
     void panel(float width, float height, DateDraft* draft) {
@@ -378,19 +400,25 @@ private:
         for (int offset = -2; offset <= 2; ++offset) {
             const std::string text = itemText(column, value, offset, year, month);
             const bool active = offset == 0;
+            const int distance = offset < 0 ? -offset : offset;
+            const WheelItemVisual visual = wheelItemVisual(offset, text.empty());
             ui_.text(columnId + ".item." + std::to_string(offset + 2))
                 .x(x + 4.0f)
                 .y(y + height * 0.5f - rowHeight * 0.5f + static_cast<float>(offset) * rowHeight)
                 .size(std::max(0.0f, width - 8.0f), rowHeight)
+                .zIndex(10 - distance)
                 .text(text)
                 .fontSize(active ? 22.0f : 15.0f)
                 .lineHeight(active ? 26.0f : 19.0f)
                 .color(active ? style_.text : style_.mutedText)
-                .opacity(text.empty() ? 0.0f : 1.0f)
+                .opacity(visual.opacity)
+                .translateY(visual.translateY)
+                .scale(visual.scaleX, visual.scaleY)
+                .transformOrigin(0.5f, 0.5f)
                 .horizontalAlign(core::HorizontalAlign::Center)
                 .verticalAlign(core::VerticalAlign::Center)
                 .transition(transition_)
-                .animate(core::AnimProperty::TextColor | core::AnimProperty::Opacity)
+                .animate(core::AnimProperty::TextColor | core::AnimProperty::Opacity | core::AnimProperty::Transform)
                 .build();
         }
     }

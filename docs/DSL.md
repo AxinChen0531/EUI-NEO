@@ -20,7 +20,7 @@ enum class ElementKind {
 - `Column`：纵向布局容器。
 - `Stack`：叠放布局容器。
 - `Rect`：基础视觉图元，支持颜色、渐变、圆角、边框、阴影、透明度、blur、transform、hover/pressed 状态。
-- `Text`：文本图元，支持字体、字号、颜色、换行、行高和对齐。
+- `Text`：文本图元，支持字体、字号、颜色、换行、行高、对齐、透明度和 transform。
 - `Image`：图片图元，支持本地图片、网络图片、SVG、Bing daily、cover/contain/stretch。
 - `Polygon`：多边形图元，支持点集、颜色、透明度、transform 和 hover/pressed 状态；当前图表 tooltip 指针和 piechart 扇区都基于它。
 
@@ -199,6 +199,13 @@ Text 支持：
 .fontWeight(...)
 .color(...)
 .opacity(...)
+.translate(...)
+.translateX(...)
+.translateY(...)
+.scale(...)
+.rotate(...)
+.rotation(...)
+.transformOrigin(...)
 .maxWidth(...)
 .wrap(...)
 .horizontalAlign(...)
@@ -207,6 +214,8 @@ Text 支持：
 ```
 
 `.icon(...)` 会自动使用图标字体；图标字体默认来自 `core/text.cpp`，也可以通过配置里的 `.iconFont(...)` 按 app 覆盖。
+
+Text 的 transform 作用在生成后的 glyph 顶点上，适合做滚轮、轻量缩放和旋转动效；命中测试仍按未 transform 的布局 frame 计算。
 
 `ui.label(id)` 是 `ui.text(id)` 的别名。
 
@@ -299,7 +308,7 @@ Frame 动画需要显式 `.animate(core::AnimProperty::Frame)`。窗口大小变
 当前可动画属性：
 
 - Rect：frame、color、opacity、radius、border、shadow、blur、transform。
-- Text：frame、text color、opacity。
+- Text：frame、text color、opacity、transform。
 - Image：frame、tint/color、opacity、radius、transform。
 - Polygon：frame、color、opacity、transform。
 

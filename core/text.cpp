@@ -584,6 +584,31 @@ void TextPrimitive::setVisualScale(float originX, float originY, float scale) {
     invalidateVertices();
 }
 
+void TextPrimitive::setTransform(const Transform& transform, const Rect& frame) {
+    auto close = [](float left, float right) {
+        return std::fabs(left - right) <= 0.0001f;
+    };
+    auto closeVec = [&](const Vec2& left, const Vec2& right) {
+        return close(left.x, right.x) && close(left.y, right.y);
+    };
+    const bool sameTransform =
+        closeVec(transform_.translate, transform.translate) &&
+        closeVec(transform_.scale, transform.scale) &&
+        close(transform_.rotate, transform.rotate) &&
+        closeVec(transform_.origin, transform.origin);
+    const bool sameFrame =
+        close(transformFrame_.x, frame.x) &&
+        close(transformFrame_.y, frame.y) &&
+        close(transformFrame_.width, frame.width) &&
+        close(transformFrame_.height, frame.height);
+    if (sameTransform && sameFrame) {
+        return;
+    }
+    transform_ = transform;
+    transformFrame_ = frame;
+    invalidateVertices();
+}
+
 void TextPrimitive::setStyle(const TextStyle& style) {
     const bool fontChanged = style.fontFamily != style_.fontFamily ||
                              style.fontSize != style_.fontSize ||
@@ -983,6 +1008,31 @@ void TextPrimitive::rebuildVertices() {
             Vec2 p1{x1, y0};
             Vec2 p2{x1, y1};
             Vec2 p3{x0, y1};
+
+            if (std::fabs(transform_.translate.x) > 0.0001f ||
+                std::fabs(transform_.translate.y) > 0.0001f ||
+                std::fabs(transform_.scale.x - 1.0f) > 0.0001f ||
+                std::fabs(transform_.scale.y - 1.0f) > 0.0001f ||
+                std::fabs(transform_.rotate) > 0.0001f) {
+                const Vec2 origin{
+                    transformFrame_.x + transformFrame_.width * transform_.origin.x,
+                    transformFrame_.y + transformFrame_.height * transform_.origin.y
+                };
+                const float cosine = std::cos(transform_.rotate);
+                const float sine = std::sin(transform_.rotate);
+                auto transformPoint = [&](Vec2 point) {
+                    const float scaledX = (point.x - origin.x) * transform_.scale.x;
+                    const float scaledY = (point.y - origin.y) * transform_.scale.y;
+                    return Vec2{
+                        origin.x + scaledX * cosine - scaledY * sine + transform_.translate.x,
+                        origin.y + scaledX * sine + scaledY * cosine + transform_.translate.y
+                    };
+                };
+                p0 = transformPoint(p0);
+                p1 = transformPoint(p1);
+                p2 = transformPoint(p2);
+                p3 = transformPoint(p3);
+            }
 
             if (std::fabs(visualScale_ - 1.0f) > 0.0001f) {
                 auto scalePoint = [&](Vec2 point) {

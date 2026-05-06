@@ -68,6 +68,7 @@ public:
     void setLineHeight(float lineHeight);
     void setStyle(const TextStyle& style);
     void setVisualScale(float originX, float originY, float scale);
+    void setTransform(const Transform& transform, const Rect& frame);
 
     const TextStyle& style() const;
     Vec2 position() const;
@@ -111,6 +112,8 @@ private:
     Vec2 position_;
     Vec2 visualScaleOrigin_;
     float visualScale_ = 1.0f;
+    Transform transform_;
+    Rect transformFrame_;
     TextStyle style_;
     std::shared_ptr<std::vector<unsigned char>> fontData_;
     std::shared_ptr<void> fontInfoStorage_;

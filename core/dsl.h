@@ -348,6 +348,15 @@ public:
         return self();
     }
 
+    Derived& rotate(float radians) {
+        element_->transform.rotate = radians;
+        return self();
+    }
+
+    Derived& rotation(float radians) {
+        return rotate(radians);
+    }
+
     Derived& transformOrigin(float xValue, float yValue) {
         element_->transform.origin = {xValue, yValue};
         return self();

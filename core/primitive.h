@@ -625,19 +625,18 @@ private:
         glUniform1i(shadowPassLocation_, shadowPass ? 1 : 0);
         glUniform1i(backdropLocation_, 0);
 
-        if (!shadowPass && blur_ > 0.0f) {
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, sharedResources().backdropTexture);
+        if (sharedResources().backdropTexture == 0) {
+            ensureBackdropTexture(1, 1);
         }
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, sharedResources().backdropTexture);
         glBindVertexArray(vao_);
         glBindBuffer(GL_ARRAY_BUFFER, vbo_);
         glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
         glDrawArrays(GL_TRIANGLES, 0, 6);
         glBindBuffer(GL_ARRAY_BUFFER, 0);
         glBindVertexArray(0);
-        if (!shadowPass && blur_ > 0.0f) {
-            glBindTexture(GL_TEXTURE_2D, 0);
-        }
+        glBindTexture(GL_TEXTURE_2D, 0);
     }
 
     Rect bounds_;

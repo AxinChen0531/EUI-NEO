@@ -268,6 +268,7 @@ private:
         AnimatedValue<LayoutRect> frame;
         AnimatedValue<Color> color;
         AnimatedValue<float> opacity;
+        AnimatedValue<Transform> transform;
         std::string text;
         std::string fontFamily;
         float fontSize = 16.0f;
@@ -649,7 +650,8 @@ private:
     static bool isTextAnimating(const TextInstance& instance) {
         return instance.frame.isActive() ||
                instance.color.isActive() ||
-               instance.opacity.isActive();
+               instance.opacity.isActive() ||
+               instance.transform.isActive();
     }
 
     static bool isImageAnimating(const ImageInstance& instance) {
@@ -1155,7 +1157,12 @@ private:
 
     void updateText(const Element& element, float deltaSeconds, bool snapFrame) {
         TextInstance& instance = textInstance(element.id);
-        const Rect beforeRect{instance.frame.value().x, instance.frame.value().y, instance.frame.value().width, instance.frame.value().height};
+        const Rect beforeRect = transformRect({instance.frame.value().x,
+                                               instance.frame.value().y,
+                                               instance.frame.value().width,
+                                               instance.frame.value().height},
+                                              instance.frame.value(),
+                                              instance.transform.value());
 
         const bool contentChanged =
             instance.text != element.text ||
@@ -1183,13 +1190,20 @@ private:
         changed = instance.frame.setTarget(element.frame, element.transition, !snapFrame && shouldAnimateFrame(element)) || changed;
         changed = instance.color.setTarget(element.textColor, element.transition, shouldAnimate(element, AnimProperty::TextColor)) || changed;
         changed = instance.opacity.setTarget(element.opacity, element.transition, shouldAnimate(element, AnimProperty::Opacity)) || changed;
+        changed = instance.transform.setTarget(element.transform, element.transition, shouldAnimate(element, AnimProperty::Transform)) || changed;
 
         changed = instance.frame.tick(deltaSeconds) || changed;
         changed = instance.color.tick(deltaSeconds) || changed;
         changed = instance.opacity.tick(deltaSeconds) || changed;
+        changed = instance.transform.tick(deltaSeconds) || changed;
 
         if (changed || contentChanged) {
-            const Rect afterRect{instance.frame.value().x, instance.frame.value().y, instance.frame.value().width, instance.frame.value().height};
+            const Rect afterRect = transformRect({instance.frame.value().x,
+                                                  instance.frame.value().y,
+                                                  instance.frame.value().width,
+                                                  instance.frame.value().height},
+                                                 instance.frame.value(),
+                                                 instance.transform.value());
             addDirtyUnion(beforeRect, afterRect);
         }
         animating_ = animating_ || isTextAnimating(instance);
@@ -1559,7 +1573,14 @@ private:
                 renderPolygon(element, windowWidth, windowHeight, dpiScale, renderTransform);
             }
         } else if (element.kind == ElementKind::Text) {
-            Rect frame = applyRenderTransform(toPixelRect(textInstance(element.id).frame.value(), dpiScale), renderTransform);
+            TextInstance& instance = textInstance(element.id);
+            Rect frame = toPixelRect(transformRect({instance.frame.value().x,
+                                                    instance.frame.value().y,
+                                                    instance.frame.value().width,
+                                                    instance.frame.value().height},
+                                                   instance.frame.value(),
+                                                   instance.transform.value()), dpiScale);
+            frame = applyRenderTransform(frame, renderTransform);
             if ((!dirtyRect || intersects(frame, *dirtyRect)) &&
                 (!effectiveHasScissor || intersects(frame, effectiveScissor))) {
                 applyOptionalScissor(effectiveHasScissor, effectiveScissor, windowHeight);
@@ -1684,6 +1705,8 @@ private:
         const float maxWidth = element.maxWidth > 0.0f ? toPixels(element.maxWidth, dpiScale) : frame.width;
         const float lineHeight = element.lineHeight > 0.0f ? toPixels(element.lineHeight, dpiScale) : 0.0f;
         Color textColor = instance.color.value();
+        Transform transform = scaleTransform(instance.transform.value(), dpiScale);
+        Rect transformFrame = frame;
         textColor.a *= instance.opacity.value();
 
         float x = frame.x;
@@ -1702,6 +1725,8 @@ private:
         if (renderTransform.active) {
             x += renderTransform.translate.x;
             y += renderTransform.translate.y;
+            transformFrame.x += renderTransform.translate.x;
+            transformFrame.y += renderTransform.translate.y;
         }
         textColor.a *= renderTransform.opacity;
 
@@ -1709,6 +1734,7 @@ private:
         instance.primitive->setVisualScale(renderTransform.origin.x + renderTransform.translate.x,
                                            renderTransform.origin.y + renderTransform.translate.y,
                                            visualScale);
+        instance.primitive->setTransform(transform, transformFrame);
         instance.primitive->setText(element.text);
         instance.primitive->setFontFamily(element.fontFamily);
         instance.primitive->setFontSize(toPixels(element.fontSize, dpiScale));
