@@ -38,9 +38,17 @@ Requirements:
 - CMake 3.14+
 - A C++17 compiler
 - OpenGL
-- FreeType, HarfBuzz, libpng, and zlib are vendored under `3rd/` and built by default.
+- Platform OpenGL/windowing development files. Linux builds also need X11 and libcurl development packages.
 
-Build-time third-party sources for GLFW/glad/tray/FreeType/HarfBuzz/libpng/zlib are vendored under `3rd/`, so the default configure/build path is offline. To force an online dependency fetch for vendored-style dependencies, configure with `-DEUI_DEPS_MODE=fetch`; to use local sources and only fetch missing dependencies, use `-DEUI_DEPS_MODE=auto`. HarfBuzz shaping is enabled by default and can be disabled with `-DEUI_ENABLE_HARFBUZZ=OFF`.
+Build-time sources for GLFW, glad, tray, FreeType, HarfBuzz, libpng, and zlib are vendored under `3rd/`. The default dependency mode is `auto`: CMake uses the local `3rd/` sources when they are present, and fetches only missing dependencies from pinned upstream URLs. Use `-DEUI_DEPS_MODE=bundled` for strict offline builds, or `-DEUI_DEPS_MODE=fetch` to force online dependency fetches. HarfBuzz shaping is enabled by default and can be disabled with `-DEUI_ENABLE_HARFBUZZ=OFF`.
+
+macOS / Linux example:
+
+```sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
+./build/gallery
+```
 
 Windows / PowerShell example:
 
@@ -48,6 +56,12 @@ Windows / PowerShell example:
 cmake -S . -B build
 cmake --build build --config Release
 .\build\Release\gallery.exe
+```
+
+Linux package hint:
+
+```sh
+sudo apt-get install -y ninja-build libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl1-mesa-dev libcurl4-openssl-dev
 ```
 
 The project creates one executable for each `app/*.cpp` page source, such as `gallery` and `demo`. After build, `assets/` is copied next to the executable automatically.
