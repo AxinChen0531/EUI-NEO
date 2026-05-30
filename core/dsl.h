@@ -53,6 +53,12 @@ enum class ElementKind {
     Image
 };
 
+enum class HitTestMode {
+    Layout,
+    Transformed,
+    None
+};
+
 struct Screen {
     float width = 0.0f;
     float height = 0.0f;
@@ -124,6 +130,7 @@ struct Element {
     bool interactive = false;
     bool focusable = false;
     bool disabled = false;
+    HitTestMode hitTestMode = HitTestMode::Layout;
     bool hasImeRect = false;
     Rect imeRect;
     CursorShape cursor = CursorShape::Arrow;
@@ -429,6 +436,16 @@ public:
 
     Derived& cursor(CursorShape value) {
         element_->cursor = value;
+        return self();
+    }
+
+    Derived& hitTestMode(HitTestMode value) {
+        element_->hitTestMode = value;
+        return self();
+    }
+
+    Derived& transformedHitTest(bool value = true) {
+        element_->hitTestMode = value ? HitTestMode::Transformed : HitTestMode::Layout;
         return self();
     }
 

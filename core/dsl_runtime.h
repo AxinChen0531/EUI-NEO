@@ -430,6 +430,16 @@ private:
         };
     }
 
+    static Rect toLogicalRect(const Rect& rect, float dpiScale) {
+        const float scale = dpiScale > 0.0f ? 1.0f / dpiScale : 1.0f;
+        return {
+            rect.x * scale,
+            rect.y * scale,
+            rect.width * scale,
+            rect.height * scale
+        };
+    }
+
     static bool intersects(const Rect& a, const Rect& b) {
         return a.x < b.x + b.width &&
                a.x + a.width > b.x &&
@@ -504,6 +514,35 @@ private:
             outer.px * inner.m01 + outer.py * inner.m11 + outer.pw * inner.py,
             outer.px * inner.tx + outer.py * inner.ty + outer.pw * inner.pw
         };
+    }
+
+    static bool inverseMatrix(const TransformMatrix& matrix, TransformMatrix& inverse) {
+        const float c00 = matrix.m11 * matrix.pw - matrix.ty * matrix.py;
+        const float c01 = matrix.ty * matrix.px - matrix.m10 * matrix.pw;
+        const float c02 = matrix.m10 * matrix.py - matrix.m11 * matrix.px;
+        const float c10 = matrix.tx * matrix.py - matrix.m01 * matrix.pw;
+        const float c11 = matrix.m00 * matrix.pw - matrix.tx * matrix.px;
+        const float c12 = matrix.m01 * matrix.px - matrix.m00 * matrix.py;
+        const float c20 = matrix.m01 * matrix.ty - matrix.tx * matrix.m11;
+        const float c21 = matrix.tx * matrix.m10 - matrix.m00 * matrix.ty;
+        const float c22 = matrix.m00 * matrix.m11 - matrix.m01 * matrix.m10;
+        const float determinant = matrix.m00 * c00 + matrix.m01 * c01 + matrix.tx * c02;
+        if (std::fabs(determinant) <= 0.000001f) {
+            return false;
+        }
+        const float invDet = 1.0f / determinant;
+        inverse = {
+            c00 * invDet,
+            c10 * invDet,
+            c20 * invDet,
+            c01 * invDet,
+            c11 * invDet,
+            c21 * invDet,
+            c02 * invDet,
+            c12 * invDet,
+            c22 * invDet
+        };
+        return true;
     }
 
     static TransformMatrix matrixForTransform(const Rect& frame, const Transform& transform) {
@@ -759,6 +798,13 @@ private:
         return {left, top, right - left, bottom - top};
     }
 
+    static Rect applyRenderTransformToLogicalRect(const Rect& rect, float dpiScale, const RenderTransform& transform) {
+        if (!transform.active) {
+            return rect;
+        }
+        return toLogicalRect(applyRenderTransform(toPixelRect(rect, dpiScale), transform), dpiScale);
+    }
+
     static Border scaleBorder(Border border, float dpiScale) {
         border.width = toPixels(border.width, dpiScale);
         return border;
@@ -897,9 +943,10 @@ private:
                            float deltaSeconds,
                            float dpiScale,
                            const std::string& hoverTargetId) {
+        const RenderTransform identity;
         const std::vector<const Element*> roots = orderedElements(ui_.roots());
         for (const Element* root : roots) {
-            updateElementTree(*root, event, deltaSeconds, dpiScale, hoverTargetId, false);
+            updateElementTree(*root, event, deltaSeconds, dpiScale, hoverTargetId, identity, false);
         }
     }
 
@@ -908,6 +955,7 @@ private:
                            float deltaSeconds,
                            float dpiScale,
                            const std::string& hoverTargetId,
+                           const RenderTransform& inheritedTransform,
                            bool ancestorFrameChanged) {
         const bool frameTargetChanged = updateFrameTarget(element);
         updateExplicitDirtyKey(element);
@@ -918,21 +966,22 @@ private:
         if (element.kind == ElementKind::Row ||
             element.kind == ElementKind::Column ||
             element.kind == ElementKind::Stack) {
-            updateLayoutElement(element, deltaSeconds);
+            updateLayoutElement(element, deltaSeconds, dpiScale, inheritedTransform);
         } else if (element.kind == ElementKind::Rect) {
-            updateRect(element, deltaSeconds, dpiScale, ancestorFrameChanged);
+            updateRect(element, deltaSeconds, dpiScale, inheritedTransform, ancestorFrameChanged);
         } else if (element.kind == ElementKind::Polygon) {
-            updatePolygon(element, deltaSeconds, ancestorFrameChanged);
+            updatePolygon(element, deltaSeconds, dpiScale, inheritedTransform, ancestorFrameChanged);
         } else if (element.kind == ElementKind::Text) {
-            updateText(element, deltaSeconds, ancestorFrameChanged);
+            updateText(element, deltaSeconds, dpiScale, inheritedTransform, ancestorFrameChanged);
         } else if (element.kind == ElementKind::Image) {
-            updateImage(element, deltaSeconds, ancestorFrameChanged);
+            updateImage(element, deltaSeconds, dpiScale, inheritedTransform, ancestorFrameChanged);
         }
 
         const bool childAncestorFrameChanged = ancestorFrameChanged || frameTargetChanged;
+        const RenderTransform renderTransform = resolveRenderTransform(element, dpiScale, inheritedTransform);
         const std::vector<const Element*> children = orderedElements(element.children);
         for (const Element* child : children) {
-            updateElementTree(*child, event, deltaSeconds, dpiScale, hoverTargetId, childAncestorFrameChanged);
+            updateElementTree(*child, event, deltaSeconds, dpiScale, hoverTargetId, renderTransform, childAncestorFrameChanged);
         }
     }
 
@@ -1077,9 +1126,10 @@ private:
     template <typename Predicate>
     std::string hitTest(const PointerEvent& event, float dpiScale, Predicate&& predicate) const {
         std::string targetId;
+        const RenderTransform identity;
         const std::vector<const Element*> roots = orderedElements(ui_.roots());
         for (const Element* root : roots) {
-            hitTestElement(*root, event, dpiScale, predicate, false, {}, targetId);
+            hitTestElement(*root, event, dpiScale, identity, predicate, false, {}, targetId);
         }
         return targetId;
     }
@@ -1088,20 +1138,23 @@ private:
     void hitTestElement(const Element& element,
                         const PointerEvent& event,
                         float dpiScale,
+                        const RenderTransform& inheritedTransform,
                         Predicate& predicate,
                         bool hasClip,
                         const Rect& clipRect,
                         std::string& targetId) const {
+        const RenderTransform renderTransform = resolveRenderTransform(element, dpiScale, inheritedTransform);
         Rect effectiveClip = clipRect;
         bool effectiveHasClip = hasClip;
         const Rect bounds = toPixelRect(element.frame, dpiScale);
         if (element.clip) {
+            const Rect clipBounds = applyRenderTransform(bounds, renderTransform);
             if (effectiveHasClip) {
-                if (!intersectRect(effectiveClip, bounds, effectiveClip)) {
+                if (!intersectRect(effectiveClip, clipBounds, effectiveClip)) {
                     return;
                 }
             } else {
-                effectiveClip = bounds;
+                effectiveClip = clipBounds;
                 effectiveHasClip = true;
             }
         }
@@ -1110,13 +1163,13 @@ private:
             return;
         }
 
-        if (predicate(element) && hitContains(element, event, dpiScale, bounds)) {
+        if (predicate(element) && hitContains(element, event, dpiScale, bounds, renderTransform)) {
             targetId = element.id;
         }
 
         const std::vector<const Element*> children = orderedElements(element.children);
         for (const Element* child : children) {
-            hitTestElement(*child, event, dpiScale, predicate, effectiveHasClip, effectiveClip, targetId);
+            hitTestElement(*child, event, dpiScale, renderTransform, predicate, effectiveHasClip, effectiveClip, targetId);
         }
     }
 
@@ -1309,7 +1362,70 @@ private:
         return inside;
     }
 
-    static bool hitContains(const Element& element, const PointerEvent& event, float dpiScale, const Rect& bounds) {
+    Transform currentElementTransform(const Element& element) const {
+        if (element.kind == ElementKind::Rect) {
+            const auto instance = rects_.find(element.id);
+            if (instance != rects_.end()) {
+                return instance->second.transform.value();
+            }
+        } else if (element.kind == ElementKind::Polygon) {
+            const auto instance = polygons_.find(element.id);
+            if (instance != polygons_.end()) {
+                return instance->second.transform.value();
+            }
+        } else if (element.kind == ElementKind::Text) {
+            const auto instance = texts_.find(element.id);
+            if (instance != texts_.end()) {
+                return instance->second.transform.value();
+            }
+        } else if (element.kind == ElementKind::Image) {
+            const auto instance = images_.find(element.id);
+            if (instance != images_.end()) {
+                return instance->second.transform.value();
+            }
+        } else if (element.kind == ElementKind::Row ||
+                   element.kind == ElementKind::Column ||
+                   element.kind == ElementKind::Stack) {
+            const auto instance = layouts_.find(element.id);
+            if (instance != layouts_.end()) {
+                return instance->second.transform.value();
+            }
+        }
+        return element.transform;
+    }
+
+    TransformMatrix hitMatrixForElement(const Element& element, float dpiScale, const Rect& bounds, const RenderTransform& renderTransform) const {
+        if (element.kind == ElementKind::Rect ||
+            element.kind == ElementKind::Polygon ||
+            element.kind == ElementKind::Text ||
+            element.kind == ElementKind::Image) {
+            return combinedPrimitiveMatrix(renderTransform, bounds, scaleTransform(currentElementTransform(element), dpiScale));
+        }
+        return renderTransform.matrix;
+    }
+
+    bool hitContains(const Element& element,
+                     const PointerEvent& event,
+                     float dpiScale,
+                     const Rect& bounds,
+                     const RenderTransform& renderTransform) const {
+        if (element.hitTestMode == HitTestMode::None) {
+            return false;
+        }
+        if (element.hitTestMode == HitTestMode::Transformed) {
+            TransformMatrix inverse;
+            if (!inverseMatrix(hitMatrixForElement(element, dpiScale, bounds, renderTransform), inverse)) {
+                return false;
+            }
+            PointerEvent localEvent = event;
+            const Vec2 local = core::transformPoint(inverse, static_cast<float>(event.x), static_cast<float>(event.y));
+            localEvent.x = local.x;
+            localEvent.y = local.y;
+            if (element.kind == ElementKind::Polygon) {
+                return polygonContains(element, localEvent.x, localEvent.y, dpiScale, bounds);
+            }
+            return bounds.contains(localEvent.x, localEvent.y);
+        }
         if (element.kind == ElementKind::Polygon) {
             return polygonContains(element, event.x, event.y, dpiScale, bounds);
         }
@@ -1354,13 +1470,16 @@ private:
         animating_ = true;
     }
 
-    void updateLayoutElement(const Element& element, float deltaSeconds) {
+    void updateLayoutElement(const Element& element,
+                             float deltaSeconds,
+                             float dpiScale,
+                             const RenderTransform& inheritedTransform) {
         LayoutInstance& instance = layoutInstance(element.id);
-        const Rect beforeRect = inflateRect(
+        const Rect beforeRect = applyRenderTransformToLogicalRect(inflateRect(
             transformRect({element.frame.x, element.frame.y, element.frame.width, element.frame.height},
                           element.frame,
                           instance.transform.value()),
-            48.0f);
+            64.0f), dpiScale, inheritedTransform);
 
         bool changed = false;
         changed = instance.transform.setTarget(element.transform, element.transition, shouldAnimate(element, AnimProperty::Transform)) || changed;
@@ -1370,20 +1489,27 @@ private:
         changed = instance.opacity.tick(deltaSeconds) || changed;
 
         if (changed) {
-            const Rect afterRect = inflateRect(
+            const Rect afterRect = applyRenderTransformToLogicalRect(inflateRect(
                 transformRect({element.frame.x, element.frame.y, element.frame.width, element.frame.height},
                               element.frame,
                               instance.transform.value()),
-                48.0f);
+                64.0f), dpiScale, inheritedTransform);
             addDirtyUnion(beforeRect, afterRect);
         }
         animating_ = animating_ || isLayoutAnimating(instance);
     }
 
-    void updateRect(const Element& element, float deltaSeconds, float dpiScale, bool snapFrame) {
+    void updateRect(const Element& element,
+                    float deltaSeconds,
+                    float dpiScale,
+                    const RenderTransform& inheritedTransform,
+                    bool snapFrame) {
         RectInstance& instance = rectInstance(element.id);
         instance.interaction = interactionInstance(element.id).state;
-        const Rect beforeRect = visualRect(instance.frame.value(), instance.shadow.value(), instance.blur.value(), instance.transform.value());
+        const Rect beforeRect = applyRenderTransformToLogicalRect(
+            visualRect(instance.frame.value(), instance.shadow.value(), instance.blur.value(), instance.transform.value()),
+            dpiScale,
+            inheritedTransform);
 
         const bool interactive = element.interactive && !element.disabled;
         const bool stateColorsVisible = element.hasStateColors &&
@@ -1425,18 +1551,28 @@ private:
         changed = instance.transform.tick(deltaSeconds) || changed;
 
         if (changed) {
-            const Rect afterRect = visualRect(instance.frame.value(), instance.shadow.value(), instance.blur.value(), instance.transform.value());
+            const Rect afterRect = applyRenderTransformToLogicalRect(
+                visualRect(instance.frame.value(), instance.shadow.value(), instance.blur.value(), instance.transform.value()),
+                dpiScale,
+                inheritedTransform);
             addDirtyUnion(beforeRect, afterRect);
         }
         animating_ = animating_ || isRectAnimating(element, instance);
     }
 
-    void updatePolygon(const Element& element, float deltaSeconds, bool snapFrame) {
+    void updatePolygon(const Element& element,
+                       float deltaSeconds,
+                       float dpiScale,
+                       const RenderTransform& inheritedTransform,
+                       bool snapFrame) {
         PolygonInstance& instance = polygonInstance(element.id);
         instance.interaction = interactionInstance(element.id).state;
-        const Rect beforeRect = transformRect({instance.frame.value().x, instance.frame.value().y, instance.frame.value().width, instance.frame.value().height},
-                                             instance.frame.value(),
-                                             instance.transform.value());
+        const Rect beforeRect = applyRenderTransformToLogicalRect(
+            transformRect({instance.frame.value().x, instance.frame.value().y, instance.frame.value().width, instance.frame.value().height},
+                          instance.frame.value(),
+                          instance.transform.value()),
+            dpiScale,
+            inheritedTransform);
 
         const bool interactive = element.interactive && !element.disabled;
         const bool stateColorsVisible = element.hasStateColors &&
@@ -1470,22 +1606,32 @@ private:
         changed = instance.transform.tick(deltaSeconds) || changed;
 
         if (changed) {
-            const Rect afterRect = transformRect({instance.frame.value().x, instance.frame.value().y, instance.frame.value().width, instance.frame.value().height},
-                                                instance.frame.value(),
-                                                instance.transform.value());
+            const Rect afterRect = applyRenderTransformToLogicalRect(
+                transformRect({instance.frame.value().x, instance.frame.value().y, instance.frame.value().width, instance.frame.value().height},
+                              instance.frame.value(),
+                              instance.transform.value()),
+                dpiScale,
+                inheritedTransform);
             addDirtyUnion(beforeRect, afterRect);
         }
         animating_ = animating_ || isPolygonAnimating(element, instance);
     }
 
-    void updateText(const Element& element, float deltaSeconds, bool snapFrame) {
+    void updateText(const Element& element,
+                    float deltaSeconds,
+                    float dpiScale,
+                    const RenderTransform& inheritedTransform,
+                    bool snapFrame) {
         TextInstance& instance = textInstance(element.id);
-        const Rect beforeRect = transformRect({instance.frame.value().x,
-                                               instance.frame.value().y,
-                                               instance.frame.value().width,
-                                               instance.frame.value().height},
-                                              instance.frame.value(),
-                                              instance.transform.value());
+        const Rect beforeRect = applyRenderTransformToLogicalRect(
+            transformRect({instance.frame.value().x,
+                           instance.frame.value().y,
+                           instance.frame.value().width,
+                           instance.frame.value().height},
+                          instance.frame.value(),
+                          instance.transform.value()),
+            dpiScale,
+            inheritedTransform);
 
         const bool keyedContent = !element.dirtyKey.empty();
         const bool textChanged = keyedContent
@@ -1526,20 +1672,30 @@ private:
         changed = instance.transform.tick(deltaSeconds) || changed;
 
         if (changed || contentChanged) {
-            const Rect afterRect = transformRect({instance.frame.value().x,
-                                                  instance.frame.value().y,
-                                                  instance.frame.value().width,
-                                                  instance.frame.value().height},
-                                                 instance.frame.value(),
-                                                 instance.transform.value());
+            const Rect afterRect = applyRenderTransformToLogicalRect(
+                transformRect({instance.frame.value().x,
+                               instance.frame.value().y,
+                               instance.frame.value().width,
+                               instance.frame.value().height},
+                              instance.frame.value(),
+                              instance.transform.value()),
+                dpiScale,
+                inheritedTransform);
             addDirtyUnion(beforeRect, afterRect);
         }
         animating_ = animating_ || isTextAnimating(instance);
     }
 
-    void updateImage(const Element& element, float deltaSeconds, bool snapFrame) {
+    void updateImage(const Element& element,
+                     float deltaSeconds,
+                     float dpiScale,
+                     const RenderTransform& inheritedTransform,
+                     bool snapFrame) {
         ImageInstance& instance = imageInstance(element.id);
-        const Rect beforeRect = imageVisualRect(instance.frame.value(), instance.transform.value());
+        const Rect beforeRect = applyRenderTransformToLogicalRect(
+            imageVisualRect(instance.frame.value(), instance.transform.value()),
+            dpiScale,
+            inheritedTransform);
 
         bool changed = false;
         changed = instance.frame.setTarget(element.frame, element.transition, !snapFrame && shouldAnimateFrame(element)) || changed;
@@ -1583,7 +1739,10 @@ private:
         }
 
         if (changed) {
-            const Rect afterRect = imageVisualRect(instance.frame.value(), instance.transform.value());
+            const Rect afterRect = applyRenderTransformToLogicalRect(
+                imageVisualRect(instance.frame.value(), instance.transform.value()),
+                dpiScale,
+                inheritedTransform);
             addDirtyUnion(beforeRect, afterRect);
         }
         animating_ = animating_ || isImageAnimating(instance);
@@ -1691,7 +1850,7 @@ private:
         return false;
     }
 
-    RenderTransform resolveRenderTransform(const Element& element, float dpiScale, const RenderTransform& inherited) {
+    RenderTransform resolveRenderTransform(const Element& element, float dpiScale, const RenderTransform& inherited) const {
         RenderTransform result = inherited;
 
         if (element.kind == ElementKind::Row ||

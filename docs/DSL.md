@@ -113,6 +113,8 @@ ui.stack("root")
 .disabled(false)
 .enabled(true)
 .cursor(core::CursorShape::Hand)
+.hitTestMode(core::dsl::HitTestMode::Transformed)
+.transformedHitTest()
 .onClick(callback)
 .onPress(callback)
 .onRelease(callback)
@@ -125,7 +127,7 @@ ui.stack("root")
 .onDrag(callback)
 ```
 
-`.onClick(...)` 会自动开启 interactive，并把 cursor 设置为手型。Runtime 会做 topmost hit-test、按下捕获、点击判定和回调派发。
+`.onClick(...)` 会自动开启 interactive，并把 cursor 设置为手型。Runtime 会做 topmost hit-test、按下捕获、点击判定和回调派发。默认命中使用布局矩形；需要旋转、缩放或 2.5D 投影后的视觉区域参与命中时，用 `.hitTestMode(core::dsl::HitTestMode::Transformed)` 或 `.transformedHitTest()`。`HitTestMode::Layout` 是默认布局命中，`Transformed` 会按当前投影矩阵反算命中，`None` 表示该元素自身不参与命中。
 
 底层 DSL 的 `onPress/onRelease/onDrag/onScroll` 回调直接使用 Runtime 原始事件。页面或组件需要 tap、拖拽阈值、滚轮步进、局部坐标、进入/离开 hover 时，优先用组件层的 `components::mouseArea(ui, id)`。
 
@@ -236,7 +238,7 @@ Text 支持：
 
 底层文本使用 FreeType 渲染 glyph，启用 HarfBuzz 时会进行复杂文本 shaping。`fontFamily("monospace")` 是跨平台等宽字体别名，`fontFamily("Emoji")` 会选择平台 emoji 字体。需要精确光标位置或命中测试时，使用 `core::TextPrimitive::measureTextMetrics(...)` 获取 shaped caret stops；返回的 `byteIndices` 是 UTF-8 byte offset，`caretX` 是对应的逻辑 x，和实际渲染使用同一套 fallback、emoji 缩放和 glyph advance。
 
-Text 的 transform 作用在生成后的 glyph 顶点上，适合做滚轮、轻量缩放和旋转动效；命中测试仍按未 transform 的布局 frame 计算。
+Text 的 transform 作用在生成后的 glyph 顶点上，适合做滚轮、轻量缩放和旋转动效；默认命中测试仍按未 transform 的布局 frame 计算，需要跟随视觉变换时开启 `.transformedHitTest()`。
 
 `ui.label(id)` 是 `ui.text(id)` 的别名。
 
@@ -371,7 +373,7 @@ ui.stack("flip.card")
 .perspective(distance)
 ```
 
-`rotateX` / `rotateY` 会把元素所在平面投影回屏幕坐标；`perspective(distance)` 是透视距离，值越小透视越强，`0` 表示关闭透视。`translateZ` 只有配合 perspective 才会产生明显视觉缩放。当前不会启用真实 depth buffer，绘制顺序仍由 DSL 树顺序和 `zIndex` 决定；hit-test 仍按未 transform 的布局 frame 计算。
+`rotateX` / `rotateY` 会把元素所在平面投影回屏幕坐标；`perspective(distance)` 是透视距离，值越小透视越强，`0` 表示关闭透视。`translateZ` 只有配合 perspective 才会产生明显视觉缩放。当前不会启用真实 depth buffer，绘制顺序仍由 DSL 树顺序和 `zIndex` 决定；默认 hit-test 仍按未 transform 的布局 frame 计算，需要跟随视觉投影时开启 `.transformedHitTest()`。
 
 ## 动画 DSL
 
@@ -473,5 +475,5 @@ components::button(ui, "save")
 - 已有基础键盘 focus / text input / 选择 / 剪贴板 / 撤销 / 重做；IME 组合态还没做。
 - 还没有事件冒泡。
 - 已有 click / press / release / hover changed / context menu / text input / scroll / drag 回调；更顺手的手势开发优先用 `components::mouseArea`。
-- transform 后的 hit-test 仍按布局矩形计算。
+- 默认 hit-test 按布局矩形计算；开启 `.transformedHitTest()` 后会按元素当前 transform 和父容器继承矩阵反投影命中。
 - 脏区渲染是保守矩形，复杂重叠场景可能扩大重绘区域。

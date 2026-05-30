@@ -1454,6 +1454,8 @@ void composeAnimationPage(core::dsl::Ui& ui, float width, float height) {
                 .perspective(480.0f)
                 .scale(actorScale)
                 .transformOrigin(0.5f, 0.5f)
+                .transformedHitTest()
+                .onClick([] { animationPerspective = !animationPerspective; })
                 .opacity(animationFaded ? 0.36f : 1.0f)
                 .transition(motionTransition())
                 .animate(core::AnimProperty::Opacity | core::AnimProperty::Transform)
