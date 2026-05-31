@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core/platform/window_backend.h"
+#include "core/platform/window_types.h"
 
 namespace eui::window {
 
