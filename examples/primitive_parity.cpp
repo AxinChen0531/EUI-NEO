@@ -111,6 +111,44 @@ void polygonSamples(eui::Ui& ui, float x, float y) {
         .build();
 }
 
+void blurSample(eui::Ui& ui, float x, float y) {
+    ui.rect("blur.backdrop.base")
+        .x(x)
+        .y(y)
+        .size(246.0f, 132.0f)
+        .gradient({0.16f, 0.22f, 0.34f, 1.0f},
+                  {0.42f, 0.24f, 0.54f, 1.0f},
+                  eui::GradientDirection::Horizontal)
+        .radius(26.0f)
+        .border(1.0f, {0.90f, 0.94f, 1.0f, 0.20f})
+        .build();
+
+    for (int i = 0; i < 7; ++i) {
+        const float stripeX = x + 18.0f + static_cast<float>(i) * 32.0f;
+        ui.rect("blur.backdrop.stripe." + std::to_string(i))
+            .x(stripeX)
+            .y(y + 14.0f)
+            .size(14.0f, 104.0f)
+            .color(i % 2 == 0 ? eui::Color{0.98f, 0.76f, 0.30f, 0.88f}
+                              : eui::Color{0.30f, 0.82f, 0.92f, 0.88f})
+            .radius(7.0f)
+            .rotate(i % 2 == 0 ? 0.14f : -0.12f)
+            .transformOrigin(0.5f, 0.5f)
+            .build();
+    }
+
+    ui.rect("blur.glass")
+        .x(x + 48.0f)
+        .y(y + 28.0f)
+        .size(150.0f, 76.0f)
+        .color({0.78f, 0.92f, 1.0f, 0.24f})
+        .radius(22.0f)
+        .border(1.0f, {0.96f, 0.99f, 1.0f, 0.44f})
+        .shadow(18.0f, 0.0f, 8.0f, {0.0f, 0.0f, 0.0f, 0.22f})
+        .blur(18.0f)
+        .build();
+}
+
 void composePrimitiveFixture(eui::Ui& ui, float width, float height) {
     checker(ui, width, height);
 
@@ -146,9 +184,10 @@ void composePrimitiveFixture(eui::Ui& ui, float width, float height) {
         .build();
 
     polygonSamples(ui, 96.0f, 492.0f);
+    blurSample(ui, 420.0f, 496.0f);
 
     ui.rect("overlap.base")
-        .x(650.0f)
+        .x(704.0f)
         .y(492.0f)
         .size(190.0f, 126.0f)
         .color({0.20f, 0.30f, 0.45f, 0.86f})
@@ -157,7 +196,7 @@ void composePrimitiveFixture(eui::Ui& ui, float width, float height) {
         .build();
 
     ui.rect("overlap.top")
-        .x(730.0f)
+        .x(784.0f)
         .y(528.0f)
         .size(164.0f, 112.0f)
         .color({0.94f, 0.46f, 0.34f, 0.68f})
