@@ -2,6 +2,7 @@
 
 #include "eui/app.h"
 #include "core/dsl_runtime.h"
+#include "core/render/render_backend.h"
 
 #include <utility>
 
@@ -80,7 +81,8 @@ public:
         return changed;
     }
 
-    void render(int framebufferWidth, int framebufferHeight, float dpiScale) {
+    void render(core::render::RenderBackend& renderBackend, int framebufferWidth, int framebufferHeight, float dpiScale) {
+        core::render::ScopedRenderBackend scopedRenderBackend(renderBackend);
         runtime_.render(framebufferWidth, framebufferHeight, dpiScale, request_.clearColor);
         needsRender_ = false;
     }

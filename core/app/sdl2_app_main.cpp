@@ -39,6 +39,7 @@ namespace {
 
 struct WindowState : app::AppRunner {
     bool running = true;
+    core::render::RenderBackend* renderBackend = nullptr;
 };
 
 struct ManagedWindow {
@@ -47,6 +48,7 @@ struct ManagedWindow {
     bool closeRequested = false;
     SDL_Window* parentWindow = nullptr;
     app::DslWindowRuntime content;
+    std::unique_ptr<core::render::opengl::OpenGLRenderBackend> renderBackend;
 };
 
 struct TimerResolutionGuard {
@@ -163,6 +165,9 @@ void hideToTray(SDL_Window* window, WindowState& state) {
     if (!state.trayAvailable || state.hiddenToTray) {
         return;
     }
+    if (state.renderBackend != nullptr) {
+        state.renderBackend->releaseRenderCache();
+    }
     app::releaseGraphicsResources();
     SDL_HideWindow(window);
     state.hiddenToTray = true;
@@ -277,6 +282,13 @@ std::unique_ptr<ManagedWindow> createManagedWindow(const app::DslWindowRequest& 
     managed->window = window;
     managed->context = context;
     managed->parentWindow = parentWindow;
+    managed->renderBackend = std::make_unique<core::render::opengl::OpenGLRenderBackend>(
+        [window, context] {
+            SDL_GL_MakeCurrent(window, context);
+        },
+        [window] {
+            SDL_GL_SwapWindow(window);
+        });
     if (!managed->content.initialize(window, request)) {
         SDL_GL_DeleteContext(context);
         SDL_DestroyWindow(window);
@@ -299,6 +311,9 @@ void destroyManagedWindow(std::unique_ptr<ManagedWindow>& managed) {
             detachNativeChildWindow(managed->parentWindow, managed->window);
         }
         SDL_GL_MakeCurrent(managed->window, managed->context);
+        if (managed->renderBackend) {
+            managed->renderBackend->releaseRenderCache();
+        }
         core::releaseInputQueue(managed->window);
         managed->content.shutdown(false);
         SDL_GL_DeleteContext(managed->context);
@@ -393,8 +408,9 @@ bool updateManagedWindow(ManagedWindow& managed, float deltaSeconds, bool extern
 
     managed.content.update(managed.window, deltaSeconds, logicalWidth, logicalHeight, pointer, dpi, externalReady);
     if (managed.content.needsRender()) {
-        managed.content.render(drawableWidth, drawableHeight, dpi);
-        SDL_GL_SwapWindow(managed.window);
+        managed.renderBackend->beginFrame(drawableWidth, drawableHeight, dpi);
+        managed.content.render(*managed.renderBackend, drawableWidth, drawableHeight, dpi);
+        managed.renderBackend->present();
     }
     return true;
 }
@@ -470,6 +486,7 @@ int main() {
         [&] {
             SDL_GL_SwapWindow(window);
         });
+    state.renderBackend = &renderBackend;
     app::MainWindowRuntime mainWindowRuntime(state);
 
     app::DslWindowManager<ManagedWindow> childWindows;
@@ -576,6 +593,7 @@ int main() {
     childWindows.destroyAll(destroyManagedWindow);
     core::releaseInputQueue(window);
     core::platform::shutdownTray();
+    renderBackend.releaseRenderCache();
     app::shutdown();
     SDL_StopTextInput();
     SDL_GL_DeleteContext(context);

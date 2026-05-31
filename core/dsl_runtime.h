@@ -4,6 +4,7 @@
 #include "core/platform/platform.h"
 #include "core/platform/event.h"
 #include "core/render/image.h"
+#include "core/render/render_backend.h"
 #include "core/platform/window_backend.h"
 
 #include <algorithm>
@@ -149,51 +150,59 @@ public:
     }
 
     void render(int windowWidth, int windowHeight, float dpiScale, const Color& clearColor) {
-        if (!ensureRenderCache(windowWidth, windowHeight)) {
-            glClearColor(clearColor.r, clearColor.g, clearColor.b, clearColor.a);
-            glClear(GL_COLOR_BUFFER_BIT);
-            renderDirect(windowWidth, windowHeight, dpiScale);
+        core::render::RenderBackend* renderBackend = core::render::activeRenderBackend();
+        if (renderBackend == nullptr) {
+            return;
+        }
+
+        if (!renderBackend->ensureRenderCache(windowWidth, windowHeight)) {
+            renderBackend->clear(clearColor);
+            renderDirect(*renderBackend, windowWidth, windowHeight, dpiScale);
             dirtyRects_.clear();
             fullRedraw_ = false;
             return;
         }
+        if (renderBackend->renderCacheWasRecreated()) {
+            fullRedraw_ = true;
+        }
 
         const std::vector<Rect> dirtyRects = resolveDirtyRects(windowWidth, windowHeight, dpiScale);
         if (dirtyRects.empty() && !fullRedraw_) {
-            blitRenderCache(windowWidth, windowHeight);
+            renderBackend->blitRenderCache(windowWidth, windowHeight);
             return;
         }
 
-        glBindFramebuffer(GL_FRAMEBUFFER, cacheFramebuffer_);
-        glViewport(0, 0, windowWidth, windowHeight);
+        renderBackend->beginRenderCacheFrame(windowWidth, windowHeight);
 
         if (fullRedraw_) {
-            glDisable(GL_SCISSOR_TEST);
-            glClearColor(clearColor.r, clearColor.g, clearColor.b, clearColor.a);
-            glClear(GL_COLOR_BUFFER_BIT);
-            renderDirect(windowWidth, windowHeight, dpiScale);
+            renderBackend->setScissor(false, {}, windowHeight);
+            renderBackend->clear(clearColor);
+            renderDirect(*renderBackend, windowWidth, windowHeight, dpiScale);
         } else {
-            glEnable(GL_SCISSOR_TEST);
             for (const Rect& dirty : dirtyRects) {
-                applyScissor(dirty, windowHeight);
-                glClearColor(clearColor.r, clearColor.g, clearColor.b, clearColor.a);
-                glClear(GL_COLOR_BUFFER_BIT);
-                renderDirect(windowWidth, windowHeight, dpiScale, &dirty);
+                renderBackend->setScissor(true, dirty, windowHeight);
+                renderBackend->clear(clearColor);
+                renderDirect(*renderBackend, windowWidth, windowHeight, dpiScale, &dirty);
             }
-            glDisable(GL_SCISSOR_TEST);
+            renderBackend->setScissor(false, {}, windowHeight);
         }
 
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        blitRenderCache(windowWidth, windowHeight);
+        renderBackend->endRenderCacheFrame();
+        renderBackend->blitRenderCache(windowWidth, windowHeight);
         dirtyRects_.clear();
         fullRedraw_ = false;
     }
 
     void render(int windowWidth, int windowHeight, float dpiScale) {
+        core::render::RenderBackend* renderBackend = core::render::activeRenderBackend();
+        if (renderBackend == nullptr) {
+            return;
+        }
+
         const RenderTransform identity;
         const std::vector<const Element*> roots = orderedElements(ui_.roots());
         for (const Element* root : roots) {
-            renderElement(*root, windowWidth, windowHeight, dpiScale, identity);
+            renderElement(*renderBackend, *root, windowWidth, windowHeight, dpiScale, identity);
         }
     }
 
@@ -240,7 +249,6 @@ public:
         if (releaseCachedImageTextures) {
             ImagePrimitive::releaseCachedTextures();
         }
-        releaseRenderCache();
         destroyCursors();
         fullRedraw_ = true;
         needsRender_ = true;
@@ -1953,54 +1961,6 @@ private:
         return result;
     }
 
-    bool ensureRenderCache(int width, int height) {
-        width = std::max(1, width);
-        height = std::max(1, height);
-        if (cacheFramebuffer_ != 0 && cacheTexture_ != 0 && cacheWidth_ == width && cacheHeight_ == height) {
-            return true;
-        }
-
-        releaseRenderCache();
-
-        glGenFramebuffers(1, &cacheFramebuffer_);
-        glGenTextures(1, &cacheTexture_);
-        glBindTexture(GL_TEXTURE_2D, cacheTexture_);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-        glBindFramebuffer(GL_FRAMEBUFFER, cacheFramebuffer_);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, cacheTexture_, 0);
-        const bool complete = glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glBindTexture(GL_TEXTURE_2D, 0);
-
-        if (!complete) {
-            releaseRenderCache();
-            return false;
-        }
-
-        cacheWidth_ = width;
-        cacheHeight_ = height;
-        fullRedraw_ = true;
-        return true;
-    }
-
-    void releaseRenderCache() {
-        if (cacheTexture_ != 0) {
-            glDeleteTextures(1, &cacheTexture_);
-            cacheTexture_ = 0;
-        }
-        if (cacheFramebuffer_ != 0) {
-            glDeleteFramebuffers(1, &cacheFramebuffer_);
-            cacheFramebuffer_ = 0;
-        }
-        cacheWidth_ = 0;
-        cacheHeight_ = 0;
-    }
-
     std::vector<Rect> resolveDirtyRects(int windowWidth, int windowHeight, float dpiScale) const {
         if (fullRedraw_) {
             return {};
@@ -2030,44 +1990,22 @@ private:
         return rects;
     }
 
-    static void applyScissor(const Rect& rect, int windowHeight) {
-        const GLint x = static_cast<GLint>(std::floor(rect.x));
-        const GLint y = static_cast<GLint>(std::floor(static_cast<float>(windowHeight) - rect.y - rect.height));
-        const GLsizei width = static_cast<GLsizei>(std::ceil(rect.width));
-        const GLsizei height = static_cast<GLsizei>(std::ceil(rect.height));
-        glScissor(x, std::max<GLint>(0, y), std::max<GLsizei>(1, width), std::max<GLsizei>(1, height));
+    static void applyOptionalScissor(core::render::RenderBackend& renderBackend, bool enabled, const Rect& rect, int windowHeight) {
+        renderBackend.setScissor(enabled, rect, windowHeight);
     }
 
-    static void applyOptionalScissor(bool enabled, const Rect& rect, int windowHeight) {
-        if (!enabled) {
-            glDisable(GL_SCISSOR_TEST);
-            return;
-        }
-        glEnable(GL_SCISSOR_TEST);
-        applyScissor(rect, windowHeight);
-    }
-
-    void blitRenderCache(int windowWidth, int windowHeight) {
-        glDisable(GL_SCISSOR_TEST);
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, cacheFramebuffer_);
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-        glBlitFramebuffer(0, 0, windowWidth, windowHeight,
-                          0, 0, windowWidth, windowHeight,
-                          GL_COLOR_BUFFER_BIT, GL_NEAREST);
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    }
-
-    void renderDirect(int windowWidth, int windowHeight, float dpiScale, const Rect* dirtyRect = nullptr) {
+    void renderDirect(core::render::RenderBackend& renderBackend, int windowWidth, int windowHeight, float dpiScale, const Rect* dirtyRect = nullptr) {
         const RenderTransform identity;
         const bool hasScissor = dirtyRect != nullptr;
         const Rect scissor = dirtyRect ? *dirtyRect : Rect{};
         const std::vector<const Element*> roots = orderedElements(ui_.roots());
         for (const Element* root : roots) {
-            renderElement(*root, windowWidth, windowHeight, dpiScale, identity, dirtyRect, hasScissor, scissor);
+            renderElement(renderBackend, *root, windowWidth, windowHeight, dpiScale, identity, dirtyRect, hasScissor, scissor);
         }
     }
 
-    void renderElement(const Element& element,
+    void renderElement(core::render::RenderBackend& renderBackend,
+                       const Element& element,
                        int windowWidth,
                        int windowHeight,
                        float dpiScale,
@@ -2101,7 +2039,7 @@ private:
             visual = applyRenderTransform(visual, renderTransform);
             if ((!dirtyRect || intersects(visual, *dirtyRect)) &&
                 (!effectiveHasScissor || intersects(visual, effectiveScissor))) {
-                applyOptionalScissor(effectiveHasScissor, effectiveScissor, windowHeight);
+                applyOptionalScissor(renderBackend, effectiveHasScissor, effectiveScissor, windowHeight);
                 renderRect(element, windowWidth, windowHeight, dpiScale, renderTransform);
             }
         } else if (element.kind == ElementKind::Polygon) {
@@ -2112,7 +2050,7 @@ private:
             visual = applyRenderTransform(visual, renderTransform);
             if ((!dirtyRect || intersects(visual, *dirtyRect)) &&
                 (!effectiveHasScissor || intersects(visual, effectiveScissor))) {
-                applyOptionalScissor(effectiveHasScissor, effectiveScissor, windowHeight);
+                applyOptionalScissor(renderBackend, effectiveHasScissor, effectiveScissor, windowHeight);
                 renderPolygon(element, windowWidth, windowHeight, dpiScale, renderTransform);
             }
         } else if (element.kind == ElementKind::Text) {
@@ -2126,7 +2064,7 @@ private:
             frame = applyRenderTransform(frame, renderTransform);
             if ((!dirtyRect || intersects(frame, *dirtyRect)) &&
                 (!effectiveHasScissor || intersects(frame, effectiveScissor))) {
-                applyOptionalScissor(effectiveHasScissor, effectiveScissor, windowHeight);
+                applyOptionalScissor(renderBackend, effectiveHasScissor, effectiveScissor, windowHeight);
                 renderText(element, windowWidth, windowHeight, dpiScale, renderTransform);
             }
         } else if (element.kind == ElementKind::Image) {
@@ -2135,14 +2073,14 @@ private:
             visual = applyRenderTransform(visual, renderTransform);
             if ((!dirtyRect || intersects(visual, *dirtyRect)) &&
                 (!effectiveHasScissor || intersects(visual, effectiveScissor))) {
-                applyOptionalScissor(effectiveHasScissor, effectiveScissor, windowHeight);
+                applyOptionalScissor(renderBackend, effectiveHasScissor, effectiveScissor, windowHeight);
                 renderImage(element, windowWidth, windowHeight, dpiScale, renderTransform);
             }
         }
 
         const std::vector<const Element*> children = orderedElements(element.children);
         for (const Element* child : children) {
-            renderElement(*child, windowWidth, windowHeight, dpiScale, renderTransform, dirtyRect, effectiveHasScissor, effectiveScissor);
+            renderElement(renderBackend, *child, windowWidth, windowHeight, dpiScale, renderTransform, dirtyRect, effectiveHasScissor, effectiveScissor);
         }
     }
 
@@ -2309,10 +2247,6 @@ private:
     std::string focusedId_;
     float logicalWidth_ = 0.0f;
     float logicalHeight_ = 0.0f;
-    GLuint cacheFramebuffer_ = 0;
-    GLuint cacheTexture_ = 0;
-    int cacheWidth_ = 0;
-    int cacheHeight_ = 0;
     core::window::CursorHandle arrowCursor_ = nullptr;
     core::window::CursorHandle handCursor_ = nullptr;
     core::window::CursorHandle currentCursor_ = nullptr;

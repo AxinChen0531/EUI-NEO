@@ -37,6 +37,7 @@ struct ManagedWindow {
     GLFWwindow* window = nullptr;
     WindowState state;
     app::DslWindowRuntime content;
+    std::unique_ptr<core::render::opengl::OpenGLRenderBackend> renderBackend;
 };
 
 struct TimerResolutionGuard {
@@ -208,6 +209,13 @@ std::unique_ptr<ManagedWindow> createManagedWindow(const app::DslWindowRequest& 
 
     auto managed = std::make_unique<ManagedWindow>();
     managed->window = childWindow;
+    managed->renderBackend = std::make_unique<core::render::opengl::OpenGLRenderBackend>(
+        [childWindow] {
+            glfwMakeContextCurrent(childWindow);
+        },
+        [childWindow] {
+            glfwSwapBuffers(childWindow);
+        });
     managed->state.lastTitleUpdate = glfwGetTime();
     managed->state.nextFrameTime = managed->state.lastTitleUpdate;
     installWindowCallbacks(childWindow, managed->state);
@@ -236,6 +244,9 @@ void destroyManagedWindow(std::unique_ptr<ManagedWindow>& managed) {
     GLFWwindow* previousContext = glfwGetCurrentContext();
     GLFWwindow* windowToDestroy = managed->window;
     glfwMakeContextCurrent(windowToDestroy);
+    if (managed->renderBackend) {
+        managed->renderBackend->releaseRenderCache();
+    }
     core::releaseInputQueue(windowToDestroy);
     managed->content.shutdown(false);
     glfwDestroyWindow(windowToDestroy);
@@ -272,8 +283,9 @@ bool updateManagedWindow(ManagedWindow& managed, float deltaSeconds, bool extern
     }
 
     if (managed.state.needsRender || managed.content.needsRender()) {
-        managed.content.render(framebufferWidth, framebufferHeight, dpiScale);
-        glfwSwapBuffers(managed.window);
+        managed.renderBackend->beginFrame(framebufferWidth, framebufferHeight, dpiScale);
+        managed.content.render(*managed.renderBackend, framebufferWidth, framebufferHeight, dpiScale);
+        managed.renderBackend->present();
         managed.state.needsRender = false;
         ++managed.state.renderedFrames;
     }
@@ -402,6 +414,7 @@ int main() {
             windowState.hideToTrayRequested = false;
         }
         if (windowState.hideToTrayRequested) {
+            renderBackend.releaseRenderCache();
             hideWindowToTray(window, windowState);
         }
         if (windowState.hiddenToTray) {
@@ -477,6 +490,7 @@ int main() {
     childWindows.destroyAll(destroyManagedWindow);
     core::releaseInputQueue(window);
     glfwMakeContextCurrent(window);
+    renderBackend.releaseRenderCache();
     core::platform::shutdownTray();
     app::shutdown();
     glfwTerminate();

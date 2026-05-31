@@ -88,6 +88,7 @@ public:
         }
 
         renderBackend.beginFrame(metrics.framebufferWidth, metrics.framebufferHeight, metrics.dpiScale);
+        core::render::ScopedRenderBackend scopedRenderBackend(renderBackend);
         app::render(metrics.framebufferWidth, metrics.framebufferHeight, metrics.dpiScale);
         renderBackend.present();
         runner_.markRendered();
