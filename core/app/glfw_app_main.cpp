@@ -18,6 +18,7 @@
 #include "core/app/dsl_window_runtime.h"
 #include "core/app/main_window_runtime.h"
 #include "core/platform/platform.h"
+#include "core/platform/window_backend.h"
 #include "core/render/opengl/opengl_backend.h"
 
 #include <algorithm>
@@ -202,7 +203,13 @@ void installWindowCallbacks(GLFWwindow* window, WindowState& windowState) {
 }
 
 std::unique_ptr<ManagedWindow> createManagedWindow(const app::DslWindowRequest& request, GLFWwindow* shareWindow) {
-    GLFWwindow* childWindow = glfwCreateWindow(request.width, request.height, request.title.c_str(), nullptr, shareWindow);
+    core::window::WindowCreateRequest windowRequest;
+    windowRequest.width = request.width;
+    windowRequest.height = request.height;
+    windowRequest.title = request.title.c_str();
+    windowRequest.parent = shareWindow;
+    windowRequest.renderApi = core::window::RenderApi::OpenGL;
+    GLFWwindow* childWindow = static_cast<GLFWwindow*>(core::window::createWindow(windowRequest));
     if (!childWindow) {
         return {};
     }
@@ -224,7 +231,7 @@ std::unique_ptr<ManagedWindow> createManagedWindow(const app::DslWindowRequest& 
     glfwSwapInterval(0);
     if (!managed->content.initialize(childWindow, request)) {
         core::releaseInputQueue(childWindow);
-        glfwDestroyWindow(childWindow);
+        core::window::destroyWindow(childWindow);
         return {};
     }
 
@@ -249,7 +256,7 @@ void destroyManagedWindow(std::unique_ptr<ManagedWindow>& managed) {
     }
     core::releaseInputQueue(windowToDestroy);
     managed->content.shutdown(false);
-    glfwDestroyWindow(windowToDestroy);
+    core::window::destroyWindow(windowToDestroy);
     if (previousContext != windowToDestroy) {
         glfwMakeContextCurrent(previousContext);
     } else {
@@ -321,18 +328,12 @@ int main() {
     }
     TimerResolutionGuard timerResolution;
 
-    glfwWindowHint(GLFW_SAMPLES, 0);
-    glfwWindowHint(GLFW_RED_BITS, 8);
-    glfwWindowHint(GLFW_GREEN_BITS, 8);
-    glfwWindowHint(GLFW_BLUE_BITS, 8);
-    glfwWindowHint(GLFW_ALPHA_BITS, 8);
-    glfwWindowHint(GLFW_DEPTH_BITS, 16);
-    glfwWindowHint(GLFW_STENCIL_BITS, 0);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-
-    GLFWwindow* window = glfwCreateWindow(app::initialWindowWidth(), app::initialWindowHeight(), app::windowTitle(), nullptr, nullptr);
+    core::window::WindowCreateRequest windowRequest;
+    windowRequest.width = app::initialWindowWidth();
+    windowRequest.height = app::initialWindowHeight();
+    windowRequest.title = app::windowTitle();
+    windowRequest.renderApi = core::window::RenderApi::OpenGL;
+    GLFWwindow* window = static_cast<GLFWwindow*>(core::window::createWindow(windowRequest));
     if (!window) {
         glfwTerminate();
         return -1;
@@ -353,7 +354,7 @@ int main() {
 
     const auto cleanupMainWindow = [&] {
         core::releaseInputQueue(window);
-        glfwDestroyWindow(window);
+        core::window::destroyWindow(window);
         glfwTerminate();
     };
 

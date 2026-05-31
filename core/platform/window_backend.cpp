@@ -18,6 +18,22 @@
 
 namespace core::window {
 
+namespace {
+
+void configureOpenGLWindowAttributes() {
+    SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
+    SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
+    SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
+    SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 16);
+    SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 0);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+}
+
+} // namespace
+
 #if defined(_WIN32)
 namespace {
 
@@ -40,6 +56,35 @@ HWND hwndForWindow(Handle window) {
 
 } // namespace
 #endif
+
+Handle createWindow(const WindowCreateRequest& request) {
+    if (request.renderApi == RenderApi::OpenGL) {
+        configureOpenGLWindowAttributes();
+    }
+
+    Uint32 flags = 0;
+    if (request.highDpi) {
+        flags |= SDL_WINDOW_ALLOW_HIGHDPI;
+    }
+    if (request.resizable) {
+        flags |= SDL_WINDOW_RESIZABLE;
+    }
+    flags |= request.renderApi == RenderApi::Vulkan ? SDL_WINDOW_VULKAN : SDL_WINDOW_OPENGL;
+
+    return SDL_CreateWindow(
+        request.title != nullptr ? request.title : "",
+        SDL_WINDOWPOS_CENTERED,
+        SDL_WINDOWPOS_CENTERED,
+        request.width,
+        request.height,
+        flags);
+}
+
+void destroyWindow(Handle window) {
+    if (window != nullptr) {
+        SDL_DestroyWindow(static_cast<SDL_Window*>(window));
+    }
+}
 
 ContextKey currentContextKey() {
     return SDL_GL_GetCurrentContext();
@@ -184,6 +229,46 @@ void setImeCursorRect(Handle window, float x, float y, float width, float height
 #include "core/platform/ime_bridge.h"
 
 namespace core::window {
+
+namespace {
+
+void configureOpenGLWindowHints() {
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
+    glfwWindowHint(GLFW_SAMPLES, 0);
+    glfwWindowHint(GLFW_RED_BITS, 8);
+    glfwWindowHint(GLFW_GREEN_BITS, 8);
+    glfwWindowHint(GLFW_BLUE_BITS, 8);
+    glfwWindowHint(GLFW_ALPHA_BITS, 8);
+    glfwWindowHint(GLFW_DEPTH_BITS, 16);
+    glfwWindowHint(GLFW_STENCIL_BITS, 0);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+}
+
+} // namespace
+
+Handle createWindow(const WindowCreateRequest& request) {
+    if (request.renderApi == RenderApi::Vulkan) {
+        glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    } else {
+        configureOpenGLWindowHints();
+    }
+    glfwWindowHint(GLFW_RESIZABLE, request.resizable ? GLFW_TRUE : GLFW_FALSE);
+
+    return glfwCreateWindow(
+        request.width,
+        request.height,
+        request.title != nullptr ? request.title : "",
+        nullptr,
+        static_cast<GLFWwindow*>(request.parent));
+}
+
+void destroyWindow(Handle window) {
+    if (window != nullptr) {
+        glfwDestroyWindow(static_cast<GLFWwindow*>(window));
+    }
+}
 
 ContextKey currentContextKey() {
     return glfwGetCurrentContext();

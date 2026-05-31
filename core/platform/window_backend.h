@@ -6,6 +6,9 @@
 
 namespace core::window {
 
+Handle createWindow(const WindowCreateRequest& request);
+void destroyWindow(Handle window);
+
 ContextKey currentContextKey();
 double timeSeconds();
 void postEmptyEvent();

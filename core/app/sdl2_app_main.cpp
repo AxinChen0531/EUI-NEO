@@ -258,13 +258,13 @@ std::unique_ptr<ManagedWindow> createManagedWindow(const app::DslWindowRequest& 
                                                    SDL_Window* parentWindow,
                                                    SDL_GLContext shareContext) {
     SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, shareContext != nullptr ? 1 : 0);
-    SDL_Window* window = SDL_CreateWindow(
-        request.title.c_str(),
-        SDL_WINDOWPOS_CENTERED,
-        SDL_WINDOWPOS_CENTERED,
-        request.width,
-        request.height,
-        SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
+    core::window::WindowCreateRequest windowRequest;
+    windowRequest.width = request.width;
+    windowRequest.height = request.height;
+    windowRequest.title = request.title.c_str();
+    windowRequest.parent = parentWindow;
+    windowRequest.renderApi = core::window::RenderApi::OpenGL;
+    SDL_Window* window = static_cast<SDL_Window*>(core::window::createWindow(windowRequest));
     SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 0);
     if (window == nullptr) {
         return {};
@@ -272,7 +272,7 @@ std::unique_ptr<ManagedWindow> createManagedWindow(const app::DslWindowRequest& 
 
     SDL_GLContext context = SDL_GL_CreateContext(window);
     if (context == nullptr) {
-        SDL_DestroyWindow(window);
+        core::window::destroyWindow(window);
         return {};
     }
     SDL_GL_MakeCurrent(window, context);
@@ -291,7 +291,7 @@ std::unique_ptr<ManagedWindow> createManagedWindow(const app::DslWindowRequest& 
         });
     if (!managed->content.initialize(window, request)) {
         SDL_GL_DeleteContext(context);
-        SDL_DestroyWindow(window);
+        core::window::destroyWindow(window);
         return {};
     }
     if (request.modal) {
@@ -317,7 +317,7 @@ void destroyManagedWindow(std::unique_ptr<ManagedWindow>& managed) {
         core::releaseInputQueue(managed->window);
         managed->content.shutdown(false);
         SDL_GL_DeleteContext(managed->context);
-        SDL_DestroyWindow(managed->window);
+        core::window::destroyWindow(managed->window);
     }
     managed.reset();
 }
@@ -429,23 +429,12 @@ int main() {
     }
     TimerResolutionGuard timerResolution;
 
-    SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
-    SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
-    SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
-    SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
-    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 16);
-    SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 0);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-
-    SDL_Window* window = SDL_CreateWindow(
-        app::windowTitle(),
-        SDL_WINDOWPOS_CENTERED,
-        SDL_WINDOWPOS_CENTERED,
-        app::initialWindowWidth(),
-        app::initialWindowHeight(),
-        SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
+    core::window::WindowCreateRequest windowRequest;
+    windowRequest.width = app::initialWindowWidth();
+    windowRequest.height = app::initialWindowHeight();
+    windowRequest.title = app::windowTitle();
+    windowRequest.renderApi = core::window::RenderApi::OpenGL;
+    SDL_Window* window = static_cast<SDL_Window*>(core::window::createWindow(windowRequest));
     if (window == nullptr) {
         SDL_Quit();
         return -1;
@@ -453,7 +442,7 @@ int main() {
 
     SDL_GLContext context = SDL_GL_CreateContext(window);
     if (context == nullptr) {
-        SDL_DestroyWindow(window);
+        core::window::destroyWindow(window);
         SDL_Quit();
         return -1;
     }
@@ -461,7 +450,7 @@ int main() {
     SDL_GL_SetSwapInterval(0);
     if (!gladLoadGLLoader(reinterpret_cast<GLADloadproc>(SDL_GL_GetProcAddress))) {
         SDL_GL_DeleteContext(context);
-        SDL_DestroyWindow(window);
+        core::window::destroyWindow(window);
         SDL_Quit();
         return -1;
     }
@@ -469,7 +458,7 @@ int main() {
     if (!app::initialize(window)) {
         app::shutdown();
         SDL_GL_DeleteContext(context);
-        SDL_DestroyWindow(window);
+        core::window::destroyWindow(window);
         SDL_Quit();
         return -1;
     }
@@ -597,7 +586,7 @@ int main() {
     app::shutdown();
     SDL_StopTextInput();
     SDL_GL_DeleteContext(context);
-    SDL_DestroyWindow(window);
+    core::window::destroyWindow(window);
     SDL_Quit();
     return 0;
 }
