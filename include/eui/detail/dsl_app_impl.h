@@ -3,8 +3,6 @@
 #include "eui/dsl_app.h"
 #include "eui/network.h"
 
-#include <glad/glad.h>
-
 #include "3rd/stb_image.h"
 #include "core/dsl_runtime.h"
 #include "core/render/text.h"

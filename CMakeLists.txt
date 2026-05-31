@@ -147,10 +147,6 @@ function(eui_neo_configure_app target_name)
     eui_neo_copy_assets(${target_name})
 endfunction()
 
-function(configure_opengl_app target_name)
-    eui_neo_configure_app(${target_name})
-endfunction()
-
 if(EUI_BUILD_APPS)
     file(GLOB APP_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/examples/*.cpp")
     foreach(app_source ${APP_SOURCES})
