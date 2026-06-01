@@ -80,7 +80,7 @@ private:
     VkExtent2D currentRenderExtent() const;
     VkFramebuffer currentFramebuffer() const;
     bool ensureRoundedRectPipeline();
-    bool ensureBackdropResources();
+    bool ensureBackdropResources(std::uint32_t width, std::uint32_t height);
     bool ensureBackdropDescriptor();
     void initializeBackdropImageIfNeeded();
     bool ensurePrimitiveVertexBuffer(std::size_t vertexCount);

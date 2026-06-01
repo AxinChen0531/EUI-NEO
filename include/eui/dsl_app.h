@@ -14,8 +14,8 @@ struct DslAppConfig {
     eui::Color clearColorValue = {0.16f, 0.18f, 0.20f, 1.0f};
     int windowWidthValue = 800;
     int windowHeightValue = 600;
-    bool showFrameCountInTitleValue = false;
-    double fpsValue = 0.0;
+    bool showFrameCountInTitleValue = true;
+    double fpsValue = 90.0;
     const char* iconPathValue = "assets/icon.png";
     const char* textFontFileValue = "";
     const char* iconFontFileValue = "";

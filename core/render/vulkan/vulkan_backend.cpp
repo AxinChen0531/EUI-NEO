@@ -77,11 +77,15 @@ VkSurfaceFormatKHR chooseSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& fo
 }
 
 VkPresentModeKHR choosePresentMode(const std::vector<VkPresentModeKHR>& modes) {
+#if defined(EUI_VULKAN_LOW_LATENCY_PRESENT)
     for (VkPresentModeKHR mode : modes) {
         if (mode == VK_PRESENT_MODE_MAILBOX_KHR) {
             return mode;
         }
     }
+#else
+    (void)modes;
+#endif
     return VK_PRESENT_MODE_FIFO_KHR;
 }
 
@@ -316,7 +320,7 @@ void VulkanRenderBackend::present() {
     transitionSwapchainImage(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
     vkEndCommandBuffer(commandBuffers_[currentImage_]);
 
-    const VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+    const VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submitInfo.waitSemaphoreCount = 1;
@@ -569,7 +573,7 @@ void VulkanRenderBackend::prepareBackdropBlur(const core::Rect&, float blur, int
         return;
     }
 
-    if (!ensureRoundedRectPipeline() || !ensureBackdropResources()) {
+    if (!ensureRoundedRectPipeline() || !ensureBackdropResources(swapchainExtent_.width, swapchainExtent_.height)) {
         backdropReady_ = false;
         return;
     }
@@ -620,7 +624,10 @@ void VulkanRenderBackend::drawRoundedRect(const RoundedRectDrawCommand& command,
     if (!frameActive_ || windowWidth <= 0 || windowHeight <= 0 || !roundedRectHasVisibleContent(command)) {
         return;
     }
-    if (!ensureRoundedRectPipeline() || !ensureBackdropResources()) {
+    const bool needsBackdrop = !command.shadowPass && command.backdropBlur > 0.001f;
+    const std::uint32_t backdropWidth = needsBackdrop ? swapchainExtent_.width : 1u;
+    const std::uint32_t backdropHeight = needsBackdrop ? swapchainExtent_.height : 1u;
+    if (!ensureRoundedRectPipeline() || !ensureBackdropResources(backdropWidth, backdropHeight)) {
         return;
     }
     if (!frameRecorded_) {
@@ -1923,18 +1930,19 @@ bool VulkanRenderBackend::ensureRoundedRectPipeline() {
     return created;
 }
 
-bool VulkanRenderBackend::ensureBackdropResources() {
-    if (device_ == VK_NULL_HANDLE || swapchainExtent_.width == 0 || swapchainExtent_.height == 0 ||
-        swapchainFormat_ == VK_FORMAT_UNDEFINED || roundedRectDescriptorSetLayout_ == VK_NULL_HANDLE) {
+bool VulkanRenderBackend::ensureBackdropResources(std::uint32_t width, std::uint32_t height) {
+    if (device_ == VK_NULL_HANDLE || width == 0 || height == 0 || swapchainFormat_ == VK_FORMAT_UNDEFINED ||
+        roundedRectDescriptorSetLayout_ == VK_NULL_HANDLE) {
         return false;
     }
 
-    const VkExtent2D targetExtent{swapchainExtent_.width, swapchainExtent_.height};
+    const VkExtent2D targetExtent{width, height};
+    const bool placeholderRequest = targetExtent.width == 1 && targetExtent.height == 1;
     if (backdropImage_ != VK_NULL_HANDLE &&
         backdropImageView_ != VK_NULL_HANDLE &&
         backdropSampler_ != VK_NULL_HANDLE &&
-        backdropExtent_.width == targetExtent.width &&
-        backdropExtent_.height == targetExtent.height) {
+        ((placeholderRequest && backdropExtent_.width >= 1 && backdropExtent_.height >= 1) ||
+         (backdropExtent_.width == targetExtent.width && backdropExtent_.height == targetExtent.height))) {
         return ensureBackdropDescriptor();
     }
 
