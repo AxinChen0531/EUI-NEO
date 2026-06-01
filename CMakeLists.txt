@@ -75,6 +75,7 @@ set(CORE_SOURCES
     core/platform/native_bridge.c
     core/platform/platform.cpp
     core/render/image_facade.cpp
+    core/render/image_source.cpp
     core/render/primitive.cpp
     core/render/render_backend.cpp
     core/render/stb_image_impl.cpp
