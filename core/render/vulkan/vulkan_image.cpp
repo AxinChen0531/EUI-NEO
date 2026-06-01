@@ -8,9 +8,23 @@
 #include <cmath>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace core {
+
+namespace {
+
+struct TextureRecord {
+    render::RenderBackend::TextureHandle texture = nullptr;
+    int width = 0;
+    int height = 0;
+    int references = 0;
+};
+
+std::unordered_map<std::string, TextureRecord> gTextureCache;
+
+} // namespace
 
 struct ImagePrimitive::Impl {
     bool initialize() { return true; }
@@ -39,9 +53,15 @@ struct ImagePrimitive::Impl {
         return render::image::isSourceReady(source);
     }
     static bool consumeRemoteImageReady() { return render::image::consumeRemoteImageReady(); }
-    static void releaseCachedTextures() {}
+    static void releaseCachedTextures();
 
     void releaseTexture();
+    static render::RenderBackend::TextureHandle acquireCachedTexture(render::RenderBackend& backend,
+                                                                     const std::string& cacheKey,
+                                                                     const unsigned char* pixels,
+                                                                     int width,
+                                                                     int height);
+    static void releaseCachedTexture(render::RenderBackend& backend, const std::string& cacheKey);
     Vec3 transformPoint(float x, float y) const;
     void rebuildVertices(float* vertices) const;
 
@@ -65,6 +85,8 @@ struct ImagePrimitive::Impl {
     int textureWidth_ = 0;
     int textureHeight_ = 0;
     bool textureDirty_ = false;
+    std::string desiredTextureCacheKey_;
+    std::string loadedTextureCacheKey_;
     std::shared_ptr<const render::image::StaticImageData> staticImage_;
     std::shared_ptr<const render::image::GifFrameData> gifFrames_;
     std::string loadedGifPath_;
@@ -78,6 +100,8 @@ void ImagePrimitive::Impl::destroy() {
     releaseTexture();
     staticImage_.reset();
     gifFrames_.reset();
+    desiredTextureCacheKey_.clear();
+    loadedTextureCacheKey_.clear();
     loadedGifPath_.clear();
     loadedSource_.clear();
 }
@@ -105,6 +129,7 @@ bool ImagePrimitive::Impl::updateTexture() {
             textureHeight_ = gifFrames_->height;
             loadedSource_ = source_;
             loadedFlipVertically_ = flipVertically_;
+            desiredTextureCacheKey_.clear();
             textureDirty_ = true;
             pendingLoad_ = false;
             changed = true;
@@ -128,16 +153,30 @@ bool ImagePrimitive::Impl::updateTexture() {
         return false;
     }
 
-    std::shared_ptr<const render::image::StaticImageData> image =
-        render::image::loadStaticImage(source_, flipVertically_, &pending);
-    pendingLoad_ = pending;
-    if (!image) {
+    if (resolvedPath.empty()) {
+        pendingLoad_ = pending;
         if (source_.empty()) {
-            releaseTexture();
             staticImage_.reset();
+            desiredTextureCacheKey_.clear();
             loadedSource_.clear();
             textureWidth_ = 0;
             textureHeight_ = 0;
+            textureDirty_ = true;
+        }
+        return false;
+    }
+
+    std::shared_ptr<const render::image::StaticImageData> image =
+        render::image::loadStaticImageFromPath(resolvedPath, flipVertically_);
+    pendingLoad_ = pending;
+    if (!image) {
+        if (source_.empty()) {
+            staticImage_.reset();
+            desiredTextureCacheKey_.clear();
+            loadedSource_.clear();
+            textureWidth_ = 0;
+            textureHeight_ = 0;
+            textureDirty_ = true;
         }
         return false;
     }
@@ -150,6 +189,7 @@ bool ImagePrimitive::Impl::updateTexture() {
     textureHeight_ = staticImage_->height;
     loadedSource_ = source_;
     loadedFlipVertically_ = flipVertically_;
+    desiredTextureCacheKey_ = render::image::imageCacheKey(resolvedPath, flipVertically_);
     textureDirty_ = true;
     pendingLoad_ = false;
     return true;
@@ -172,15 +212,31 @@ void ImagePrimitive::Impl::render(int windowWidth, int windowHeight) {
         pixels = staticImage_->pixels.data();
     }
     if (pixels == nullptr || textureWidth_ <= 0 || textureHeight_ <= 0) {
+        releaseTexture();
         return;
     }
 
-    if (texture_ == nullptr) {
-        texture_ = backend->createTexture(pixels, textureWidth_, textureHeight_);
-        textureDirty_ = false;
-    } else if (textureDirty_) {
-        if (backend->updateTexture(texture_, pixels, textureWidth_, textureHeight_)) {
-            textureDirty_ = false;
+    const bool wantsCachedTexture = staticImage_ && !desiredTextureCacheKey_.empty();
+    if (wantsCachedTexture) {
+        if (loadedTextureCacheKey_ != desiredTextureCacheKey_) {
+            releaseTexture();
+            texture_ = acquireCachedTexture(*backend, desiredTextureCacheKey_, pixels, textureWidth_, textureHeight_);
+            if (texture_ != nullptr) {
+                loadedTextureCacheKey_ = desiredTextureCacheKey_;
+                textureDirty_ = false;
+            }
+        }
+    } else {
+        if (!loadedTextureCacheKey_.empty()) {
+            releaseTexture();
+        }
+        if (texture_ == nullptr) {
+            texture_ = backend->createTexture(pixels, textureWidth_, textureHeight_);
+            textureDirty_ = texture_ == nullptr;
+        } else if (textureDirty_) {
+            if (backend->updateTexture(texture_, pixels, textureWidth_, textureHeight_)) {
+                textureDirty_ = false;
+            }
         }
     }
     if (texture_ == nullptr) {
@@ -196,11 +252,68 @@ void ImagePrimitive::Impl::render(int windowWidth, int windowHeight) {
 
 void ImagePrimitive::Impl::releaseTexture() {
     if (texture_ != nullptr) {
-        if (auto* backend = render::activeRenderBackend()) {
+        auto* backend = render::activeRenderBackend();
+        if (backend == nullptr) {
+            return;
+        }
+        if (!loadedTextureCacheKey_.empty()) {
+            releaseCachedTexture(*backend, loadedTextureCacheKey_);
+        } else {
             backend->destroyTexture(texture_);
         }
         texture_ = nullptr;
     }
+    loadedTextureCacheKey_.clear();
+    textureDirty_ = false;
+}
+
+render::RenderBackend::TextureHandle ImagePrimitive::Impl::acquireCachedTexture(render::RenderBackend& backend,
+                                                                                const std::string& cacheKey,
+                                                                                const unsigned char* pixels,
+                                                                                int width,
+                                                                                int height) {
+    if (cacheKey.empty() || pixels == nullptr || width <= 0 || height <= 0) {
+        return nullptr;
+    }
+    const auto cached = gTextureCache.find(cacheKey);
+    if (cached != gTextureCache.end()) {
+        ++cached->second.references;
+        return cached->second.texture;
+    }
+
+    render::RenderBackend::TextureHandle texture = backend.createTexture(pixels, width, height);
+    if (texture != nullptr) {
+        gTextureCache[cacheKey] = {texture, width, height, 1};
+    }
+    return texture;
+}
+
+void ImagePrimitive::Impl::releaseCachedTexture(render::RenderBackend& backend, const std::string& cacheKey) {
+    const auto cached = gTextureCache.find(cacheKey);
+    if (cached == gTextureCache.end()) {
+        return;
+    }
+    cached->second.references = std::max(0, cached->second.references - 1);
+    if (cached->second.references > 0) {
+        return;
+    }
+    if (cached->second.texture != nullptr) {
+        backend.destroyTexture(cached->second.texture);
+    }
+    gTextureCache.erase(cached);
+}
+
+void ImagePrimitive::Impl::releaseCachedTextures() {
+    auto* backend = render::activeRenderBackend();
+    if (backend == nullptr) {
+        return;
+    }
+    for (auto& item : gTextureCache) {
+        if (item.second.texture != nullptr) {
+            backend->destroyTexture(item.second.texture);
+        }
+    }
+    gTextureCache.clear();
 }
 
 Vec3 ImagePrimitive::Impl::transformPoint(float x, float y) const {
