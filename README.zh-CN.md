@@ -163,7 +163,6 @@ tests/        本地验证记录和测试数据
 - [集成指南](docs/集成指南.md)
 - [开发与发布](docs/开发与发布.md)
 - [Review 清单](docs/Review清单.md)
-- [内存占用记录](tests/内存占用.md)
 
 ## 当前组件
 

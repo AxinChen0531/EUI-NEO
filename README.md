@@ -163,7 +163,6 @@ tests/        Local validation notes and benchmark records
 - [Integration Guide](docs/集成指南.md)
 - [Development And Release](docs/开发与发布.md)
 - [Review Checklist](docs/Review清单.md)
-- [Memory Usage Notes](tests/内存占用.md)
 
 ## Current Components
 
