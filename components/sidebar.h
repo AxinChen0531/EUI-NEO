@@ -52,11 +52,9 @@ public:
             .content([&] {
                 ui_.rect(id_ + ".scrim")
                     .size(panelX, height_)
-                    .color(scrimColor())
-                    .opacity(open_ ? 1.0f : 0.0f)
+                    .color(transparentColor())
+                    .opacity(1.0f)
                     .disabled(!open_)
-                    .transition(transition_)
-                    .animate(core::AnimProperty::Opacity)
                     .onClick(onClose)
                     .onScroll([](const core::ScrollEvent&) {})
                     .build();
@@ -131,10 +129,8 @@ private:
             : core::mixColor(tokens_.surface, tokens_.surfaceHover, 0.58f);
     }
 
-    core::Color scrimColor() const {
-        return tokens_.dark
-            ? core::Color{0.0f, 0.0f, 0.0f, 0.38f}
-            : core::Color{0.08f, 0.11f, 0.18f, 0.22f};
+    core::Color transparentColor() const {
+        return core::Color{0.0f, 0.0f, 0.0f, 0.0f};
     }
 
     core::Color borderColor(float opacity = 1.0f) const {
