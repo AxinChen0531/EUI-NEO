@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <functional>
+#include <type_traits>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -141,7 +142,7 @@ struct Element {
     std::function<void()> onClick;
     std::function<void(const PointerEvent&, const Rect&)> onPress;
     std::function<void(const PointerEvent&, const Rect&)> onRelease;
-    std::function<void(const PointerEvent&, const Rect&)> onMove;
+    std::function<bool(const PointerEvent&, const Rect&)> onMove;
     std::function<void(const PointerEvent&, const Rect&)> onContextMenu;
     std::function<void(bool)> onHoverChanged;
     std::function<void(bool)> onFocusChanged;
@@ -556,10 +557,22 @@ public:
         return self();
     }
 
-    Derived& onMove(std::function<void(const PointerEvent&, const Rect&)> callback) {
+    Derived& onMove(std::function<bool(const PointerEvent&, const Rect&)> callback) {
         element_->interactive = true;
         element_->cursor = CursorShape::Hand;
         element_->onMove = std::move(callback);
+        return self();
+    }
+
+    template <typename Callback,
+              typename = std::enable_if_t<!std::is_convertible_v<Callback, std::function<bool(const PointerEvent&, const Rect&)>>>>
+    Derived& onMove(Callback callback) {
+        element_->interactive = true;
+        element_->cursor = CursorShape::Hand;
+        element_->onMove = [callback = std::move(callback)](const PointerEvent& event, const Rect& bounds) mutable {
+            callback(event, bounds);
+            return true;
+        };
         return self();
     }
 
@@ -846,10 +859,22 @@ public:
         return this->self();
     }
 
-    Derived& onMove(std::function<void(const PointerEvent&, const Rect&)> callback) {
+    Derived& onMove(std::function<bool(const PointerEvent&, const Rect&)> callback) {
         this->element_->interactive = true;
         this->element_->cursor = CursorShape::Hand;
         this->element_->onMove = std::move(callback);
+        return this->self();
+    }
+
+    template <typename Callback,
+              typename = std::enable_if_t<!std::is_convertible_v<Callback, std::function<bool(const PointerEvent&, const Rect&)>>>>
+    Derived& onMove(Callback callback) {
+        this->element_->interactive = true;
+        this->element_->cursor = CursorShape::Hand;
+        this->element_->onMove = [callback = std::move(callback)](const PointerEvent& event, const Rect& bounds) mutable {
+            callback(event, bounds);
+            return true;
+        };
         return this->self();
     }
 

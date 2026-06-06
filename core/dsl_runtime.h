@@ -1419,9 +1419,10 @@ private:
                 bounds.width / dpiScale,
                 bounds.height / dpiScale
             };
-            element.onMove(logicalEvent, logicalBounds);
-            needsCompose_ = true;
-            needsRender_ = true;
+            if (element.onMove(logicalEvent, logicalBounds)) {
+                needsCompose_ = true;
+                needsRender_ = true;
+            }
         }
 
         if (enabled && topmostHover && event.rightPressedThisFrame && element.onContextMenu) {

@@ -198,11 +198,12 @@ public:
                         if (std::fabs(nextX - moveState.targetX) < 0.004f &&
                             std::fabs(nextY - moveState.targetY) < 0.004f &&
                             moveState.hover) {
-                            return;
+                            return false;
                         }
                         moveState.hover = true;
                         moveState.targetY = nextY;
                         moveState.targetX = nextX;
+                        return true;
                     })
                     .build();
             })
