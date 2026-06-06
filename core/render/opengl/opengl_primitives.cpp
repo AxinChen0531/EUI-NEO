@@ -384,7 +384,9 @@ void OpenGLRenderBackend::drawRoundedRect(const RoundedRectDrawCommand& command,
     glUniform1i(resources.gradientDirectionLocation, static_cast<int>(command.gradient.direction));
     glUniform1i(resources.shadowPassLocation, command.shadowPass ? 1 : 0);
     glUniform1i(resources.insetShadowPassLocation, command.insetShadowPass ? 1 : 0);
-    glUniform2f(resources.shadowOffsetLocation, command.shadowOffset.x, command.shadowOffset.y);
+    glUniform2f(resources.shadowOffsetLocation,
+                command.shadowPass ? command.shadowOffset.x : command.backdropOffset.x,
+                command.shadowPass ? command.shadowOffset.y : command.backdropOffset.y);
     glUniform1f(resources.shadowSpreadLocation, command.shadowSpread);
     glUniform1i(resources.backdropLocation, 0);
 

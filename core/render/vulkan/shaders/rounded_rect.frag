@@ -27,10 +27,12 @@ float roundedBoxDistance(vec2 point, vec2 halfSize, float radius) {
 
 vec4 backdropRect(float blurRadiusPx) {
     vec2 windowSize = max(pc.windowAndShape.xy, vec2(1.0));
-    float left = clamp(floor(pc.rect.x - blurRadiusPx), 0.0, max(windowSize.x - 1.0, 0.0));
-    float top = clamp(floor(pc.rect.y - blurRadiusPx), 0.0, max(windowSize.y - 1.0, 0.0));
-    float right = clamp(ceil(pc.rect.x + pc.rect.z + blurRadiusPx), left + 1.0, windowSize.x);
-    float bottom = clamp(ceil(pc.rect.y + pc.rect.w + blurRadiusPx), top + 1.0, windowSize.y);
+    vec2 captureOffset = vec2(pc.flags.y, pc.flags2.w);
+    vec2 captureOrigin = pc.rect.xy + captureOffset;
+    float left = clamp(floor(captureOrigin.x - blurRadiusPx), 0.0, max(windowSize.x - 1.0, 0.0));
+    float top = clamp(floor(captureOrigin.y - blurRadiusPx), 0.0, max(windowSize.y - 1.0, 0.0));
+    float right = clamp(ceil(captureOrigin.x + pc.rect.z + blurRadiusPx), left + 1.0, windowSize.x);
+    float bottom = clamp(ceil(captureOrigin.y + pc.rect.w + blurRadiusPx), top + 1.0, windowSize.y);
     return vec4(left, top, right - left, bottom - top);
 }
 

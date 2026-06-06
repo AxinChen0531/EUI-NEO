@@ -13,6 +13,21 @@ core::render::RenderBackend* activeBackend() {
     return core::render::activeRenderBackend();
 }
 
+Rect transformedBoundsForRect(const Rect& bounds,
+                              const Transform& transform,
+                              const TransformMatrix& matrix,
+                              bool hasTransformMatrix) {
+    const Vec3 p0 = core::render::transformPrimitivePoint(bounds, transform, matrix, hasTransformMatrix, bounds.x, bounds.y);
+    const Vec3 p1 = core::render::transformPrimitivePoint(bounds, transform, matrix, hasTransformMatrix, bounds.x + bounds.width, bounds.y);
+    const Vec3 p2 = core::render::transformPrimitivePoint(bounds, transform, matrix, hasTransformMatrix, bounds.x + bounds.width, bounds.y + bounds.height);
+    const Vec3 p3 = core::render::transformPrimitivePoint(bounds, transform, matrix, hasTransformMatrix, bounds.x, bounds.y + bounds.height);
+    const float left = std::min(std::min(p0.x, p1.x), std::min(p2.x, p3.x));
+    const float top = std::min(std::min(p0.y, p1.y), std::min(p2.y, p3.y));
+    const float right = std::max(std::max(p0.x, p1.x), std::max(p2.x, p3.x));
+    const float bottom = std::max(std::max(p0.y, p1.y), std::max(p2.y, p3.y));
+    return {left, top, right - left, bottom - top};
+}
+
 } // namespace
 
 struct RoundedRectPrimitive::Impl {
@@ -35,6 +50,7 @@ struct RoundedRectPrimitive::Impl {
                    int windowHeight,
                    const Rect& geometryBounds,
                    const Rect& sdfBounds,
+                   const Rect& backdropBounds,
                    bool shadowPass,
                    bool insetShadowPass,
                    const Color& layerColor,
@@ -62,6 +78,10 @@ struct RoundedRectPrimitive::Impl {
         command.shadowOffset = layerShadowOffset;
         command.shadowSpread = layerShadowSpread;
         command.backdropBlur = shadowPass ? 0.0f : blur;
+        command.backdropOffset = {
+            backdropBounds.x - bounds.x,
+            backdropBounds.y - bounds.y
+        };
         command.shadowPass = shadowPass;
         command.insetShadowPass = insetShadowPass;
         backend->drawRoundedRect(command, windowWidth, windowHeight);
@@ -76,7 +96,7 @@ struct RoundedRectPrimitive::Impl {
         const Rect shadowShape = core::render::primitiveShadowShape(bounds, shadow);
         const float shadowBlur = core::render::primitiveShadowBlur(shadow);
         const float shadowExtent = core::render::primitiveShadowExtent(shadow, shadowBlur);
-        drawLayer(windowWidth, windowHeight, core::render::expandPrimitiveRect(shadowShape, shadowExtent), shadowShape,
+        drawLayer(windowWidth, windowHeight, core::render::expandPrimitiveRect(shadowShape, shadowExtent), shadowShape, shadowShape,
                   true, false, core::render::scalePrimitiveAlpha(shadow.color, 0.74f), shadowBlur);
     }
 
@@ -86,7 +106,7 @@ struct RoundedRectPrimitive::Impl {
             return;
         }
 
-        drawLayer(windowWidth, windowHeight, bounds, bounds, true, true,
+        drawLayer(windowWidth, windowHeight, bounds, bounds, bounds, true, true,
                   core::render::scalePrimitiveAlpha(shadow.color, 0.86f),
                   core::render::primitiveShadowBlur(shadow),
                   shadow.offset,
@@ -155,13 +175,17 @@ void RoundedRectPrimitive::render(int windowWidth, int windowHeight) const {
     if (backend == nullptr) {
         return;
     }
+    const Rect backdropBounds = transformedBoundsForRect(impl_->bounds,
+                                                        impl_->transform,
+                                                        impl_->transformMatrix,
+                                                        impl_->hasTransformMatrix);
     if (impl_->blur > 0.0f) {
-        backend->prepareBackdropBlur(impl_->bounds, impl_->blur, windowWidth, windowHeight);
+        backend->prepareBackdropBlur(backdropBounds, impl_->blur, windowWidth, windowHeight);
     }
     if (impl_->shadow.enabled && !impl_->shadow.inset) {
         impl_->drawShadow(windowWidth, windowHeight);
     }
-    impl_->drawLayer(windowWidth, windowHeight, impl_->bounds, impl_->bounds, false, false, impl_->color, impl_->shadow.blur);
+    impl_->drawLayer(windowWidth, windowHeight, impl_->bounds, impl_->bounds, backdropBounds, false, false, impl_->color, impl_->shadow.blur);
     if (impl_->shadow.enabled && impl_->shadow.inset) {
         impl_->drawInsetShadow(windowWidth, windowHeight);
     }

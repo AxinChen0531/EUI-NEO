@@ -26,6 +26,7 @@ struct RoundedRectDrawCommand {
     Vec2 shadowOffset = {0.0f, 0.0f};
     float shadowSpread = 0.0f;
     float backdropBlur = 0.0f;
+    Vec2 backdropOffset = {0.0f, 0.0f};
     bool shadowPass = false;
     bool insetShadowPass = false;
 };

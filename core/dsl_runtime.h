@@ -837,6 +837,18 @@ private:
         return {left, top, right - left, bottom - top};
     }
 
+    static Rect applyTransformMatrix(const Rect& rect, const TransformMatrix& matrix) {
+        const Vec2 p0 = core::transformPoint(matrix, rect.x, rect.y);
+        const Vec2 p1 = core::transformPoint(matrix, rect.x + rect.width, rect.y);
+        const Vec2 p2 = core::transformPoint(matrix, rect.x + rect.width, rect.y + rect.height);
+        const Vec2 p3 = core::transformPoint(matrix, rect.x, rect.y + rect.height);
+        const float left = std::min(std::min(p0.x, p1.x), std::min(p2.x, p3.x));
+        const float top = std::min(std::min(p0.y, p1.y), std::min(p2.y, p3.y));
+        const float right = std::max(std::max(p0.x, p1.x), std::max(p2.x, p3.x));
+        const float bottom = std::max(std::max(p0.y, p1.y), std::max(p2.y, p3.y));
+        return {left, top, right - left, bottom - top};
+    }
+
     static Rect applyRenderTransformToLogicalRect(const Rect& rect, float dpiScale, const RenderTransform& transform) {
         if (!transform.active) {
             return rect;
@@ -1088,7 +1100,7 @@ private:
                            bool ancestorFrameChanged) {
         const bool frameTargetChanged = updateFrameTarget(element);
         updateExplicitDirtyKey(element, dpiScale, inheritedTransform);
-        updateInteraction(element, event, dpiScale, hoverTargetId);
+        updateInteraction(element, event, dpiScale, hoverTargetId, inheritedTransform);
         updateTimer(element, deltaSeconds);
         updateFrameCallback(element, deltaSeconds);
 
@@ -1465,22 +1477,24 @@ private:
             pixelRect.height);
     }
 
-    void updateInteraction(const Element& element, const PointerEvent& event, float dpiScale, const std::string& hoverTargetId) {
+    void updateInteraction(const Element& element,
+                           const PointerEvent& event,
+                           float dpiScale,
+                           const std::string& hoverTargetId,
+                           const RenderTransform& inheritedTransform) {
         if (!element.interactive && interactions_.find(element.id) == interactions_.end()) {
             return;
         }
 
         InteractionInstance& instance = interactionInstance(element.id);
         const Rect bounds = toPixelRect(element.frame, dpiScale);
+        const RenderTransform renderTransform = resolveRenderTransform(element, dpiScale, inheritedTransform);
         const bool enabled = element.interactive && !element.disabled;
         const bool topmostHover = enabled && element.id == hoverTargetId;
         const bool wasHover = instance.state.hover;
-        Rect interactionBounds = bounds;
-        if (usesRuntimeTransform(element)) {
-            interactionBounds = transformRect({bounds.x, bounds.y, bounds.width, bounds.height},
-                                              {bounds.x, bounds.y, bounds.width, bounds.height},
-                                              scaleTransform(runtimeTransformForElement(element, element.transform), dpiScale));
-        }
+        const Rect interactionBounds = applyTransformMatrix(
+            bounds,
+            hitMatrixForElement(element, dpiScale, bounds, renderTransform));
         instance.state.update(interactionBounds, event, topmostHover, enabled);
 
         if (enabled && wasHover != instance.state.hover && element.onHoverChanged) {
@@ -1649,7 +1663,7 @@ private:
         if (element.hitTestMode == HitTestMode::None) {
             return false;
         }
-        if (element.hitTestMode == HitTestMode::Transformed) {
+        if (element.hitTestMode == HitTestMode::Transformed || renderTransform.active) {
             TransformMatrix inverse;
             if (!inverseMatrix(hitMatrixForElement(element, dpiScale, bounds, renderTransform), inverse)) {
                 return false;
