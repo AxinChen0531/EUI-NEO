@@ -2,6 +2,7 @@
 
 #include "components/theme.h"
 #include "core/dsl.h"
+#include "core/render/text.h"
 
 #include <algorithm>
 #include <cctype>
@@ -135,19 +136,6 @@ inline std::string trimMarkdownText(std::string value) {
     return value;
 }
 
-inline std::string markerText(const MarkdownRun& run) {
-    if (run.kind == MarkdownRunKind::Image) {
-        return "[image: " + (run.text.empty() ? run.href : run.text) + "]";
-    }
-    if (run.kind == MarkdownRunKind::Link) {
-        return run.text.empty() ? run.href : run.text;
-    }
-    if (run.kind == MarkdownRunKind::WikiLink) {
-        return run.text.empty() ? run.href : run.text;
-    }
-    return run.text;
-}
-
 inline std::string decodeMarkdownEntity(const std::string& text) {
     if (text == "&amp;") {
         return "&";
@@ -167,14 +155,28 @@ inline std::string decodeMarkdownEntity(const std::string& text) {
     return text;
 }
 
+inline std::string displayText(const MarkdownRun& run) {
+    std::string text = run.text;
+    if (run.kind == MarkdownRunKind::Entity) {
+        text = decodeMarkdownEntity(run.text);
+    } else if (run.kind == MarkdownRunKind::Image) {
+        text = "[image: " + (run.text.empty() ? run.href : run.text) + "]";
+    } else if (run.kind == MarkdownRunKind::WikiLink) {
+        text = "[[" + (run.text.empty() ? run.href : run.text) + "]]";
+    } else if (run.kind == MarkdownRunKind::Math || run.style.math) {
+        text = "$" + run.text + "$";
+    } else if (run.kind == MarkdownRunKind::Html || run.style.html) {
+        text = run.text;
+    } else if ((run.kind == MarkdownRunKind::Link || run.style.link) && run.text.empty()) {
+        text = run.href;
+    }
+    return text;
+}
+
 inline std::string plainText(const std::vector<MarkdownRun>& runs) {
     std::string value;
     for (const MarkdownRun& run : runs) {
-        if (run.kind == MarkdownRunKind::Entity) {
-            value += decodeMarkdownEntity(run.text);
-        } else {
-            value += markerText(run);
-        }
+        value += displayText(run);
     }
     return value;
 }
@@ -199,6 +201,17 @@ inline float estimateMarkdownTextHeight(const std::string& text, float width, fl
         start = end + 1;
     }
     return static_cast<float>(std::max(1, lines)) * safeLineHeight;
+}
+
+inline float measureMarkdownTextWidth(const std::string& text,
+                                      const std::string& fontFamily,
+                                      float fontSize,
+                                      int fontWeight) {
+    const float measured = core::TextPrimitive::measureTextWidth(text, fontFamily, fontSize, fontWeight);
+    if (measured > 0.0f) {
+        return measured;
+    }
+    return static_cast<float>(text.size()) * std::max(1.0f, fontSize * 0.56f);
 }
 
 inline float markdownHeadingSize(const MarkdownStyle& style, int level) {
@@ -627,6 +640,29 @@ public:
     MarkdownBuilder(core::dsl::Ui& ui, std::string id)
         : ui_(ui), id_(std::move(id)) {}
 
+    static float estimateHeight(const std::string& markdown,
+                                float width,
+                                const MarkdownStyle& style = MarkdownStyle()) {
+        const std::vector<detail::MarkdownBlock> blocks = detail::parseMarkdownBlocks(markdown);
+        float height = 0.0f;
+        for (std::size_t index = 0; index < blocks.size(); ++index) {
+            if (blocks[index].kind == detail::MarkdownBlockKind::TableRow) {
+                std::size_t end = index + 1;
+                while (end < blocks.size() && blocks[end].kind == detail::MarkdownBlockKind::TableRow) {
+                    ++end;
+                }
+                height += estimateTableHeight(blocks, index, end, width, style);
+                index = end - 1;
+            } else {
+                height += estimateBlockHeight(blocks[index], width, style);
+            }
+            if (index + 1 < blocks.size()) {
+                height += style.blockGap;
+            }
+        }
+        return height;
+    }
+
     MarkdownBuilder& markdown(std::string value) { markdown_ = std::move(value); return *this; }
     MarkdownBuilder& text(std::string value) { return markdown(std::move(value)); }
     MarkdownBuilder& source(std::string value) { return markdown(std::move(value)); }
@@ -699,6 +735,168 @@ public:
     }
 
 private:
+    static bool runIsChip(const detail::MarkdownRun& run) {
+        return run.kind == detail::MarkdownRunKind::InlineCode ||
+               run.kind == detail::MarkdownRunKind::Image ||
+               run.kind == detail::MarkdownRunKind::Math ||
+               run.kind == detail::MarkdownRunKind::WikiLink ||
+               run.kind == detail::MarkdownRunKind::Html ||
+               run.style.html;
+    }
+
+    static float estimateInlineSegmentWidth(const detail::MarkdownRun& run,
+                                            const std::string& text,
+                                            float maxWidth,
+                                            float fontSize,
+                                            bool heading,
+                                            const MarkdownStyle& style) {
+        if (text == "\n") {
+            return maxWidth;
+        }
+        const bool code = run.kind == detail::MarkdownRunKind::InlineCode;
+        const bool chip = runIsChip(run);
+        const std::string fontFamily = code ? style.codeFontFamily : style.fontFamily;
+        const float runFontSize = code ? std::max(1.0f, fontSize - 1.0f) : fontSize;
+        const int weight = heading || run.style.strong ? 700 : 400;
+        const float padding = chip ? 12.0f : 0.0f;
+        return std::min(maxWidth, detail::measureMarkdownTextWidth(text, fontFamily, runFontSize, weight) + padding);
+    }
+
+    static float estimateInlineRunsHeight(const std::vector<detail::MarkdownRun>& runs,
+                                          float width,
+                                          float fontSize,
+                                          float lineHeight,
+                                          bool heading,
+                                          const MarkdownStyle& style) {
+        const float gap = 4.0f;
+        float cursorX = 0.0f;
+        float cursorY = 0.0f;
+        bool hasLineItem = false;
+
+        auto pushSegment = [&](const detail::MarkdownRun& run, const std::string& text) {
+            if (text.empty()) {
+                return;
+            }
+            if (text == "\n") {
+                cursorX = 0.0f;
+                cursorY += lineHeight;
+                hasLineItem = false;
+                return;
+            }
+            const float segmentWidth = estimateInlineSegmentWidth(run, text, width, fontSize, heading, style);
+            if (hasLineItem && width > 0.0f && cursorX + gap + segmentWidth > width) {
+                cursorX = 0.0f;
+                cursorY += lineHeight;
+                hasLineItem = false;
+            }
+            if (hasLineItem) {
+                cursorX += gap;
+            }
+            cursorX += segmentWidth;
+            hasLineItem = true;
+        };
+
+        for (const detail::MarkdownRun& run : runs) {
+            const std::string text = detail::displayText(run);
+            if (text.empty()) {
+                continue;
+            }
+            if (runIsChip(run)) {
+                pushSegment(run, text);
+                continue;
+            }
+            std::size_t begin = 0;
+            while (begin < text.size()) {
+                while (begin < text.size() && std::isspace(static_cast<unsigned char>(text[begin])) != 0) {
+                    if (text[begin] == '\n') {
+                        pushSegment(run, "\n");
+                    }
+                    ++begin;
+                }
+                if (begin >= text.size()) {
+                    break;
+                }
+                std::size_t end = begin;
+                while (end < text.size() && std::isspace(static_cast<unsigned char>(text[end])) == 0) {
+                    ++end;
+                }
+                pushSegment(run, text.substr(begin, end - begin));
+                begin = end;
+            }
+        }
+
+        return cursorY + lineHeight;
+    }
+
+    static float estimateTableRowHeight(const detail::MarkdownBlock& block,
+                                        float contentWidth,
+                                        const MarkdownStyle& style) {
+        const std::size_t cellCount = std::max<std::size_t>(1, block.cells.size());
+        const float cellWidth = contentWidth / static_cast<float>(cellCount);
+        const float textWidth = std::max(0.0f, cellWidth - style.tableCellPadding * 2.0f);
+        float height = 0.0f;
+        for (std::size_t cell = 0; cell < cellCount; ++cell) {
+            height = std::max(height, estimateInlineRunsHeight(
+                cell < block.cells.size() ? block.cells[cell].runs : std::vector<detail::MarkdownRun>{},
+                textWidth,
+                style.bodySize,
+                style.bodyLineHeight,
+                false,
+                style));
+        }
+        return height + style.tableCellPadding * 2.0f;
+    }
+
+    static float estimateTableHeight(const std::vector<detail::MarkdownBlock>& blocks,
+                                     std::size_t begin,
+                                     std::size_t end,
+                                     float width,
+                                     const MarkdownStyle& style) {
+        if (begin >= end) {
+            return 0.0f;
+        }
+        const detail::MarkdownBlock& first = blocks[begin];
+        const float quoteInset = static_cast<float>(std::max(0, first.quoteDepth)) * 8.0f;
+        const float listInset = static_cast<float>(std::max(0, first.listDepth - 1)) * style.listIndent;
+        const float contentWidth = std::max(0.0f, width - quoteInset - listInset);
+        float height = 0.0f;
+        for (std::size_t row = begin; row < end; ++row) {
+            height += estimateTableRowHeight(blocks[row], contentWidth, style);
+        }
+        return height;
+    }
+
+    static float estimateBlockHeight(const detail::MarkdownBlock& block,
+                                     float width,
+                                     const MarkdownStyle& style) {
+        const float quoteInset = static_cast<float>(std::max(0, block.quoteDepth)) * 8.0f;
+        const float listInset = static_cast<float>(std::max(0, block.listDepth - 1)) * style.listIndent;
+        const float contentWidth = std::max(0.0f, width - quoteInset - listInset);
+
+        if (block.kind == detail::MarkdownBlockKind::Divider) {
+            return 9.0f;
+        }
+        if (block.kind == detail::MarkdownBlockKind::Code || block.kind == detail::MarkdownBlockKind::Html) {
+            const std::string text = detail::plainText(block.runs);
+            const float textWidth = std::max(0.0f, contentWidth - style.codePadding * 2.0f);
+            return detail::estimateMarkdownTextHeight(text, textWidth, style.codeSize, style.codeSize + 6.0f) + style.codePadding * 2.0f;
+        }
+        if (block.kind == detail::MarkdownBlockKind::ListItem) {
+            const float markerWidth = block.task ? 34.0f : 24.0f;
+            const float textWidth = std::max(0.0f, contentWidth - markerWidth - 8.0f);
+            return std::max(style.bodyLineHeight, estimateInlineRunsHeight(block.runs, textWidth, style.bodySize, style.bodyLineHeight, false, style));
+        }
+
+        const bool heading = block.kind == detail::MarkdownBlockKind::Heading;
+        const float fontSize = heading ? detail::markdownHeadingSize(style, block.headingLevel) : style.bodySize;
+        const float lineHeight = heading ? fontSize + 6.0f : style.bodyLineHeight;
+        const float textHeight = estimateInlineRunsHeight(block.runs, contentWidth, fontSize, lineHeight, heading, style);
+        if (block.quoteDepth > 0) {
+            return textHeight + style.quotePadding * 2.0f;
+        }
+        return textHeight;
+    }
+
     void renderBlock(const detail::MarkdownBlock& block, std::size_t index) {
         const std::string partId = id_ + ".block." + std::to_string(index);
         const float quoteInset = static_cast<float>(std::max(0, block.quoteDepth)) * 8.0f;
@@ -746,13 +944,11 @@ private:
                         float contentWidth) {
         const float markerWidth = block.task ? 34.0f : 24.0f;
         const float textWidth = std::max(0.0f, contentWidth - markerWidth - 8.0f);
-        const std::string text = detail::plainText(block.runs);
-        const float height = std::max(style_.bodyLineHeight, detail::estimateMarkdownTextHeight(text, textWidth, style_.bodySize, style_.bodyLineHeight));
-        ui_.row(partId)
+        const float height = std::max(style_.bodyLineHeight, inlineRunsHeight(block.runs, textWidth, style_.bodySize, style_.bodyLineHeight, false));
+        ui_.stack(partId)
             .width(contentWidth)
             .height(height)
             .margin(quoteInset + listInset, 0.0f, 0.0f, 0.0f)
-            .gap(8.0f)
             .content([&] {
                 ui_.text(partId + ".mark")
                     .size(markerWidth, style_.bodyLineHeight)
@@ -761,19 +957,10 @@ private:
                     .fontSize(style_.bodySize)
                     .lineHeight(style_.bodyLineHeight)
                     .horizontalAlign(core::HorizontalAlign::Right)
+                    .verticalAlign(core::VerticalAlign::Center)
                     .color(block.task ? style_.accent : style_.muted)
                     .build();
-                ui_.text(partId + ".text")
-                    .width(textWidth)
-                    .height(height)
-                    .text(text)
-                    .fontFamily(style_.fontFamily)
-                    .fontSize(style_.bodySize)
-                    .lineHeight(style_.bodyLineHeight)
-                    .wrap()
-                    .verticalAlign(core::VerticalAlign::Center)
-                    .color(style_.text)
-                    .build();
+                renderInlineRuns(partId + ".text", block.runs, textWidth, height, style_.bodySize, style_.bodyLineHeight, false, markerWidth + 8.0f, 0.0f);
             })
             .build();
     }
@@ -786,8 +973,7 @@ private:
                            float fontSize,
                            float lineHeight,
                            bool heading) {
-        const std::string text = detail::plainText(block.runs);
-        const float blockHeight = detail::estimateMarkdownTextHeight(text, contentWidth, fontSize, lineHeight);
+        const float blockHeight = inlineRunsHeight(block.runs, contentWidth, fontSize, lineHeight, heading);
         if (block.quoteDepth > 0) {
             const float barWidth = 3.0f;
             const float barGap = 8.0f;
@@ -795,7 +981,7 @@ private:
             const float panelWidth = std::max(0.0f, contentWidth - panelX);
             const float textX = panelX + style_.quotePadding;
             const float textWidth = std::max(0.0f, panelWidth - style_.quotePadding * 2.0f);
-            const float textHeight = detail::estimateMarkdownTextHeight(text, textWidth, fontSize, lineHeight);
+            const float textHeight = inlineRunsHeight(block.runs, textWidth, fontSize, lineHeight, heading);
             const float height = textHeight + style_.quotePadding * 2.0f;
             ui_.stack(partId)
                 .width(contentWidth)
@@ -814,20 +1000,7 @@ private:
                         .color(style_.quoteBackground)
                         .radius(style_.radius)
                         .build();
-                    ui_.text(partId + ".text")
-                        .x(textX)
-                        .y(style_.quotePadding)
-                        .width(textWidth)
-                        .height(textHeight)
-                        .text(text)
-                        .fontFamily(style_.fontFamily)
-                        .fontSize(fontSize)
-                        .fontWeight(heading ? 700 : 400)
-                        .lineHeight(lineHeight)
-                        .wrap()
-                        .verticalAlign(core::VerticalAlign::Center)
-                        .color(heading ? style_.heading : style_.text)
-                        .build();
+                    renderInlineRuns(partId + ".text", block.runs, textWidth, textHeight, fontSize, lineHeight, heading, textX, style_.quotePadding);
                 })
                 .build();
             return;
@@ -838,20 +1011,235 @@ private:
             .height(blockHeight)
             .margin(quoteInset + listInset, 0.0f, 0.0f, 0.0f)
             .content([&] {
-                ui_.text(partId + ".text")
-                    .width(contentWidth)
-                    .height(blockHeight)
-                    .text(text)
-                    .fontFamily(style_.fontFamily)
-                    .fontSize(fontSize)
-                    .fontWeight(heading ? 700 : 400)
-                    .lineHeight(lineHeight)
-                    .wrap()
-                    .verticalAlign(core::VerticalAlign::Center)
-                    .color(heading ? style_.heading : style_.text)
-                    .build();
+                renderInlineRuns(partId + ".text", block.runs, contentWidth, blockHeight, fontSize, lineHeight, heading);
             })
             .build();
+    }
+
+    struct InlineSegment {
+        detail::MarkdownRun run;
+        std::string text;
+        float x = 0.0f;
+        float y = 0.0f;
+        float width = 0.0f;
+        bool chip = false;
+        bool lineBreak = false;
+    };
+
+    bool inlineRunIsChip(const detail::MarkdownRun& run) const {
+        return run.kind == detail::MarkdownRunKind::InlineCode ||
+               run.kind == detail::MarkdownRunKind::Image ||
+               run.kind == detail::MarkdownRunKind::Math ||
+               run.kind == detail::MarkdownRunKind::WikiLink ||
+               run.kind == detail::MarkdownRunKind::Html ||
+               run.style.html;
+    }
+
+    core::Color inlineRunColor(const detail::MarkdownRun& run, bool heading) const {
+        if (run.kind == detail::MarkdownRunKind::InlineCode) {
+            return style_.codeText;
+        }
+        if (run.style.link || run.kind == detail::MarkdownRunKind::Link ||
+            run.kind == detail::MarkdownRunKind::Image ||
+            run.kind == detail::MarkdownRunKind::Math ||
+            run.kind == detail::MarkdownRunKind::WikiLink) {
+            return style_.accent;
+        }
+        if (run.kind == detail::MarkdownRunKind::Html || run.style.html) {
+            return style_.muted;
+        }
+        return heading ? style_.heading : style_.text;
+    }
+
+    float inlineSegmentWidth(const detail::MarkdownRun& run, const std::string& text, float maxWidth, float fontSize, bool heading) const {
+        if (text == "\n") {
+            return maxWidth;
+        }
+        const bool code = run.kind == detail::MarkdownRunKind::InlineCode;
+        const bool chip = inlineRunIsChip(run);
+        const std::string fontFamily = code ? style_.codeFontFamily : style_.fontFamily;
+        const float runFontSize = code ? std::max(1.0f, fontSize - 1.0f) : fontSize;
+        const int weight = heading || run.style.strong ? 700 : 400;
+        const float padding = chip ? 12.0f : 0.0f;
+        return std::min(maxWidth, detail::measureMarkdownTextWidth(text, fontFamily, runFontSize, weight) + padding);
+    }
+
+    std::vector<InlineSegment> layoutInlineRuns(const std::vector<detail::MarkdownRun>& runs,
+                                                float width,
+                                                float fontSize,
+                                                float lineHeight,
+                                                bool heading,
+                                                float& outHeight) const {
+        std::vector<InlineSegment> segments;
+        const float gap = 4.0f;
+        float cursorX = 0.0f;
+        float cursorY = 0.0f;
+        bool hasLineItem = false;
+
+        auto pushSegment = [&](detail::MarkdownRun run, std::string text) {
+            if (text.empty()) {
+                return;
+            }
+            const bool lineBreak = text == "\n";
+            const bool chip = inlineRunIsChip(run);
+            const float segmentWidth = lineBreak ? width : inlineSegmentWidth(run, text, width, fontSize, heading);
+            if (lineBreak) {
+                cursorX = 0.0f;
+                cursorY += lineHeight;
+                hasLineItem = false;
+                return;
+            }
+            if (hasLineItem && width > 0.0f && cursorX + gap + segmentWidth > width) {
+                cursorX = 0.0f;
+                cursorY += lineHeight;
+                hasLineItem = false;
+            }
+            if (hasLineItem) {
+                cursorX += gap;
+            }
+            segments.push_back({std::move(run), std::move(text), cursorX, cursorY, segmentWidth, chip, false});
+            cursorX += segmentWidth;
+            hasLineItem = true;
+        };
+
+        for (const detail::MarkdownRun& run : runs) {
+            const std::string text = detail::displayText(run);
+            if (text.empty()) {
+                continue;
+            }
+            if (inlineRunIsChip(run)) {
+                pushSegment(run, text);
+                continue;
+            }
+            std::size_t begin = 0;
+            while (begin < text.size()) {
+                while (begin < text.size() && std::isspace(static_cast<unsigned char>(text[begin])) != 0) {
+                    if (text[begin] == '\n') {
+                        pushSegment(run, "\n");
+                    }
+                    ++begin;
+                }
+                if (begin >= text.size()) {
+                    break;
+                }
+                std::size_t end = begin;
+                while (end < text.size() && std::isspace(static_cast<unsigned char>(text[end])) == 0) {
+                    ++end;
+                }
+                pushSegment(run, text.substr(begin, end - begin));
+                begin = end;
+            }
+        }
+
+        outHeight = segments.empty() ? lineHeight : cursorY + lineHeight;
+        return segments;
+    }
+
+    float inlineRunsHeight(const std::vector<detail::MarkdownRun>& runs,
+                           float width,
+                           float fontSize,
+                           float lineHeight,
+                           bool heading) const {
+        float height = lineHeight;
+        (void)layoutInlineRuns(runs, width, fontSize, lineHeight, heading, height);
+        return height;
+    }
+
+    void renderInlineRuns(const std::string& partId,
+                          const std::vector<detail::MarkdownRun>& runs,
+                          float width,
+                          float height,
+                          float fontSize,
+                          float lineHeight,
+                          bool heading,
+                          float x = 0.0f,
+                          float y = 0.0f,
+                          core::HorizontalAlign align = core::HorizontalAlign::Left) {
+        float measuredHeight = lineHeight;
+        std::vector<InlineSegment> segments = layoutInlineRuns(runs, width, fontSize, lineHeight, heading, measuredHeight);
+        alignInlineSegments(segments, width, align);
+        ui_.stack(partId)
+            .position(x, y)
+            .size(width, height)
+            .content([&] {
+                for (std::size_t index = 0; index < segments.size(); ++index) {
+                    renderInlineSegment(partId + ".seg." + std::to_string(index), segments[index], fontSize, lineHeight, heading);
+                }
+            })
+            .build();
+    }
+
+    void renderInlineSegment(const std::string& partId,
+                             const InlineSegment& segment,
+                             float fontSize,
+                             float lineHeight,
+                             bool heading) {
+        const bool code = segment.run.kind == detail::MarkdownRunKind::InlineCode;
+        const float runFontSize = code ? std::max(1.0f, fontSize - 1.0f) : fontSize;
+        const int weight = heading || segment.run.style.strong ? 700 : 400;
+        const float textInset = segment.chip ? 6.0f : 0.0f;
+        const core::Color color = inlineRunColor(segment.run, heading);
+
+        ui_.stack(partId)
+            .position(segment.x, segment.y)
+            .size(segment.width, lineHeight)
+            .content([&] {
+                if (segment.chip) {
+                    const float bgHeight = std::max(16.0f, lineHeight - 4.0f);
+                    ui_.rect(partId + ".bg")
+                        .y((lineHeight - bgHeight) * 0.5f)
+                        .size(segment.width, bgHeight)
+                        .color(code ? style_.codeBackground : style_.quoteBackground)
+                        .radius(style_.radius)
+                        .build();
+                }
+                ui_.text(partId + ".text")
+                    .x(textInset)
+                    .width(std::max(0.0f, segment.width - textInset * 2.0f))
+                    .height(lineHeight)
+                    .text(segment.text)
+                    .fontFamily(code ? style_.codeFontFamily : style_.fontFamily)
+                    .fontSize(runFontSize)
+                    .fontWeight(weight)
+                    .lineHeight(lineHeight)
+                    .verticalAlign(core::VerticalAlign::Center)
+                    .color(color)
+                    .build();
+                if (segment.run.style.deleted || segment.run.style.underline || segment.run.style.link) {
+                    const float lineY = segment.run.style.deleted ? lineHeight * 0.52f : lineHeight - 4.0f;
+                    ui_.rect(partId + ".decor")
+                        .x(textInset)
+                        .y(lineY)
+                        .size(std::max(0.0f, segment.width - textInset * 2.0f), 1.0f)
+                        .color(segment.run.style.link ? style_.accent : color)
+                        .build();
+                }
+            })
+            .build();
+    }
+
+    void alignInlineSegments(std::vector<InlineSegment>& segments,
+                             float width,
+                             core::HorizontalAlign align) const {
+        if (align == core::HorizontalAlign::Left || width <= 0.0f) {
+            return;
+        }
+        std::size_t lineBegin = 0;
+        while (lineBegin < segments.size()) {
+            const float lineY = segments[lineBegin].y;
+            std::size_t lineEnd = lineBegin;
+            float lineRight = 0.0f;
+            while (lineEnd < segments.size() && std::fabs(segments[lineEnd].y - lineY) <= 0.001f) {
+                lineRight = std::max(lineRight, segments[lineEnd].x + segments[lineEnd].width);
+                ++lineEnd;
+            }
+            const float extra = std::max(0.0f, width - lineRight);
+            const float offset = align == core::HorizontalAlign::Center ? extra * 0.5f : extra;
+            for (std::size_t index = lineBegin; index < lineEnd; ++index) {
+                segments[index].x += offset;
+            }
+            lineBegin = lineEnd;
+        }
     }
 
     void renderCodeBlock(const std::string& partId,
@@ -874,7 +1262,7 @@ private:
             .margin(quoteInset + listInset, 0.0f, 0.0f, 0.0f)
             .content([&] {
                 ui_.rect(partId + ".bg")
-                    .fill()
+                    .size(contentWidth, blockHeight)
                     .color(style_.codeBackground)
                     .radius(style_.radius)
                     .build();
@@ -909,7 +1297,7 @@ private:
             .margin(quoteInset + listInset, 0.0f, 0.0f, 0.0f)
             .content([&] {
                 ui_.rect(partId + ".bg")
-                    .fill()
+                    .size(contentWidth, blockHeight)
                     .color(style_.quoteBackground)
                     .radius(style_.radius)
                     .build();
@@ -959,14 +1347,7 @@ private:
     }
 
     float tableRowHeight(const detail::MarkdownBlock& block, float contentWidth) const {
-        const std::size_t cellCount = std::max<std::size_t>(1, block.cells.size());
-        const float cellWidth = contentWidth / static_cast<float>(cellCount);
-        float height = 0.0f;
-        const float textWidth = std::max(0.0f, cellWidth - style_.tableCellPadding * 2.0f);
-        for (std::size_t cell = 0; cell < cellCount; ++cell) {
-            height = std::max(height, detail::estimateMarkdownTextHeight(detail::plainText(block.cells, cell), textWidth, style_.bodySize, style_.bodyLineHeight));
-        }
-        return height + style_.tableCellPadding * 2.0f;
+        return estimateTableRowHeight(block, contentWidth, style_);
     }
 
     void renderTableRow(const std::string& partId,
@@ -979,14 +1360,14 @@ private:
             ? theme::withOpacity(style_.accent, 0.16f)
             : style_.quoteBackground;
 
-        ui_.row(partId)
+        ui_.stack(partId)
             .width(contentWidth)
             .height(rowHeight)
             .content([&] {
                 for (std::size_t cell = 0; cell < cellCount; ++cell) {
                     const std::string cellId = partId + ".cell." + std::to_string(cell);
-                    const std::string text = detail::plainText(block.cells, cell);
                     ui_.stack(cellId)
+                        .x(static_cast<float>(cell) * cellWidth)
                         .size(cellWidth, rowHeight)
                         .content([&] {
                             ui_.rect(cellId + ".bg")
@@ -994,26 +1375,41 @@ private:
                                 .color(fill)
                                 .border(1.0f, style_.divider)
                                 .build();
-                            ui_.text(cellId + ".text")
-                                .x(style_.tableCellPadding)
-                                .y(style_.tableCellPadding)
-                                .width(std::max(0.0f, cellWidth - style_.tableCellPadding * 2.0f))
-                                .height(std::max(0.0f, rowHeight - style_.tableCellPadding * 2.0f))
-                                .text(text)
-                                .fontFamily(style_.fontFamily)
-                                .fontSize(style_.bodySize)
-                                .fontWeight(block.tableHeader ? 700 : 400)
-                                .lineHeight(style_.bodyLineHeight)
-                                .wrap()
-                                .horizontalAlign(cell < block.cells.size() ? detail::horizontalAlign(block.cells[cell].align) : core::HorizontalAlign::Left)
-                                .verticalAlign(core::VerticalAlign::Center)
-                                .color(block.tableHeader ? style_.heading : style_.text)
-                                .build();
+                            if (cell < block.cells.size()) {
+                                renderTableCell(cellId + ".text", block.cells[cell], block.tableHeader, cellWidth, rowHeight);
+                            }
                         })
                         .build();
                 }
             })
             .build();
+    }
+
+    void renderTableCell(const std::string& partId,
+                         const detail::MarkdownTableCell& cell,
+                         bool header,
+                         float cellWidth,
+                         float rowHeight) {
+        const float textWidth = std::max(0.0f, cellWidth - style_.tableCellPadding * 2.0f);
+        const float textHeight = inlineRunsHeight(cell.runs, textWidth, style_.bodySize, style_.bodyLineHeight, false);
+        float textX = style_.tableCellPadding;
+        if (cell.align == detail::MarkdownAlign::Center) {
+            textX = style_.tableCellPadding;
+        } else if (cell.align == detail::MarkdownAlign::Right) {
+            textX = style_.tableCellPadding;
+        }
+        const float textY = std::max(0.0f, (rowHeight - textHeight) * 0.5f);
+
+        renderInlineRuns(partId,
+                         cell.runs,
+                         textWidth,
+                         textHeight,
+                         style_.bodySize,
+                         style_.bodyLineHeight,
+                         header,
+                         textX,
+                         textY,
+                         detail::horizontalAlign(cell.align));
     }
 
     core::dsl::Ui& ui_;

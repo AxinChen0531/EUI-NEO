@@ -6,7 +6,7 @@ Common syntax rendered inside the Style page.
 
 ## Inline
 
-Use **strong**, *emphasis*, `inline code`, [links](https://example.com), ~~deleted text~~, and entity text like &amp; &lt; &gt;.
+Use **strong**, *emphasis*, ***strong emphasis***, __underline__, `inline code`, [links](https://example.com), <https://example.com/autolink>, www.example.com, ~~deleted text~~, $a^2 + b^2$, [[Wiki Target]], <span>inline HTML</span>, ![Image alt](assets/eui-icon.png), and entity text like &amp; &lt; &gt;.
 
 ## Lists
 
@@ -41,6 +41,8 @@ components::markdown(ui, "style.markdown")
 | `# title` | Heading |
 | `- item` | List |
 | `` `code` `` | Inline code |
+| `~~text~~` | Deleted |
+| `$math$` | Math chip |
 )";
     }
 
@@ -103,7 +105,10 @@ components::markdown(ui, "style.markdown")
     void markdownCard(eui::Ui& ui, float width) {
         const float cardWidth = std::max(280.0f, std::min(width, 820.0f));
         const float inset = 22.0f;
-        const float markdownHeight = 980.0f;
+        const components::MarkdownStyle markdownStyle(themeColors());
+        const std::string markdown = markdownSample();
+        const float markdownWidth = std::max(0.0f, cardWidth - inset * 2.0f);
+        const float markdownHeight = components::MarkdownBuilder::estimateHeight(markdown, markdownWidth, markdownStyle) + 8.0f;
         const float cardHeight = markdownHeight + inset * 2.0f + 42.0f;
 
         ui.stack("style.markdown.card")
@@ -131,10 +136,10 @@ components::markdown(ui, "style.markdown")
 
                 components::markdown(ui, "style.markdown.preview")
                     .position(inset, inset + 42.0f)
-                    .theme(themeColors())
-                    .width(std::max(0.0f, cardWidth - inset * 2.0f))
+                    .style(markdownStyle)
+                    .width(markdownWidth)
                     .height(markdownHeight)
-                    .markdown(markdownSample())
+                    .markdown(markdown)
                     .zIndex(1)
                     .build();
             })
