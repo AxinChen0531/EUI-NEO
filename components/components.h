@@ -30,6 +30,8 @@
 #include "components/mousearea.h"
 
 #include "components/panel.h"
+#include "components/card.h"
+#include "components/layout_debug.h"
 #include "components/text.h"
 #include "components/image.h"
 #include "components/markdown.h"
