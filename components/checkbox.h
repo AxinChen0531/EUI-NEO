@@ -13,7 +13,7 @@
 namespace components {
 
 struct CheckboxStyle {
-    CheckboxStyle() : CheckboxStyle(theme::DarkThemeColors()) {}
+    CheckboxStyle() : CheckboxStyle(theme::dark()) {}
 
     explicit CheckboxStyle(const theme::ThemeColorTokens& tokens) {
         box = tokens.surface;

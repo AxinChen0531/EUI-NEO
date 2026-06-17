@@ -22,7 +22,6 @@ public:
     SidebarBuilder& eyebrow(std::string value) { eyebrow_ = std::move(value); return *this; }
     SidebarBuilder& theme(const theme::ThemeColorTokens& tokens) { tokens_ = tokens; return *this; }
     SidebarBuilder& zIndex(int value) { zIndex_ = value; return *this; }
-    SidebarBuilder& z(int value) { return zIndex(value); }
     SidebarBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }
 
     SidebarBuilder& onClose(std::function<void()> callback) {
@@ -208,7 +207,7 @@ private:
     std::string id_;
     std::string title_ = "Workshop";
     std::string eyebrow_ = "WORKSHOP";
-    theme::ThemeColorTokens tokens_ = theme::DarkThemeColors();
+    theme::ThemeColorTokens tokens_ = theme::dark();
     core::Transition transition_ = core::Transition::make(0.24f, core::Ease::OutCubic);
     std::function<void()> onClose_;
     std::function<void(core::dsl::Ui&, float, float)> content_;

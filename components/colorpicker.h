@@ -16,7 +16,7 @@
 namespace components {
 
 struct ColorPickerStyle {
-    ColorPickerStyle() : ColorPickerStyle(theme::DarkThemeColors()) {}
+    ColorPickerStyle() : ColorPickerStyle(theme::dark()) {}
 
     explicit ColorPickerStyle(const theme::ThemeColorTokens& tokens) {
         backdrop = theme::color(0.0f, 0.0f, 0.0f, tokens.dark ? 0.42f : 0.26f);
@@ -60,7 +60,6 @@ public:
     ColorPickerBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = ColorPickerStyle(tokens); return *this; }
     ColorPickerBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }
     ColorPickerBuilder& zIndex(int value) { zIndex_ = value; return *this; }
-    ColorPickerBuilder& z(int value) { return zIndex(value); }
     ColorPickerBuilder& onChange(std::function<void(core::Color)> callback) { onChange_ = std::move(callback); return *this; }
     ColorPickerBuilder& onOpenChange(std::function<void(bool)> callback) { onOpenChange_ = std::move(callback); return *this; }
 
@@ -412,7 +411,7 @@ private:
     int zIndex_ = 1000;
 };
 
-inline ColorPickerBuilder colorpicker(core::dsl::Ui& ui, const std::string& id) {
+inline ColorPickerBuilder colorPicker(core::dsl::Ui& ui, const std::string& id) {
     return ColorPickerBuilder(ui, id);
 }
 

@@ -12,7 +12,7 @@
 namespace components {
 
 struct ContextMenuStyle {
-    ContextMenuStyle() : ContextMenuStyle(theme::DarkThemeColors()) {}
+    ContextMenuStyle() : ContextMenuStyle(theme::dark()) {}
 
     explicit ContextMenuStyle(const theme::ThemeColorTokens& tokens) {
         background = tokens.dark
@@ -50,7 +50,6 @@ public:
     ContextMenuBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = ContextMenuStyle(tokens); return *this; }
     ContextMenuBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }
     ContextMenuBuilder& zIndex(int value) { zIndex_ = value; return *this; }
-    ContextMenuBuilder& z(int value) { return zIndex(value); }
     ContextMenuBuilder& onSelect(std::function<void(int)> callback) { onSelect_ = std::move(callback); return *this; }
     ContextMenuBuilder& onDismiss(std::function<void()> callback) { onDismiss_ = std::move(callback); return *this; }
 

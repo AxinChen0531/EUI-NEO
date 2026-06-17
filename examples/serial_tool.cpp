@@ -474,7 +474,7 @@ void composeCharts(eui::Ui& ui, float x, float y, float width) {
         .y(y)
         .size(lineW, h)
         .content([&] {
-            components::linechart(ui, "charts.line")
+            components::lineChart(ui, "charts.line")
                 .theme(themeTokens())
                 .size(lineW, h)
                 .title("Throughput")
@@ -490,7 +490,7 @@ void composeCharts(eui::Ui& ui, float x, float y, float width) {
         .y(y)
         .size(sideW, h)
         .content([&] {
-            components::barchart(ui, "charts.bar")
+            components::barChart(ui, "charts.bar")
                 .theme(themeTokens())
                 .size(sideW, h)
                 .title("Bytes")
@@ -507,7 +507,7 @@ void composeCharts(eui::Ui& ui, float x, float y, float width) {
         .y(y)
         .size(sideW, h)
         .content([&] {
-            components::piechart(ui, "charts.pie")
+            components::pieChart(ui, "charts.pie")
                 .theme(themeTokens())
                 .size(sideW, h)
                 .title("Mix")
@@ -552,7 +552,7 @@ void composeTransmit(eui::Ui& ui, float x, float y, float width, float height) {
                 .size(112.0f, 28.0f)
                 .trackSize(36.0f, 20.0f)
                 .fontSize(11.0f)
-                .label("Auto RX")
+                .text("Auto RX")
                 .checked(state.autoReceive)
                 .onChange([](bool value) {
                     state.autoReceive = value;

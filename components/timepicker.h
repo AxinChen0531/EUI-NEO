@@ -13,7 +13,7 @@
 namespace components {
 
 struct TimePickerStyle {
-    TimePickerStyle() : TimePickerStyle(theme::DarkThemeColors()) {}
+    TimePickerStyle() : TimePickerStyle(theme::dark()) {}
 
     explicit TimePickerStyle(const theme::ThemeColorTokens& tokens) {
         backdrop = theme::color(0.0f, 0.0f, 0.0f, tokens.dark ? 0.42f : 0.26f);
@@ -61,7 +61,6 @@ public:
     TimePickerBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = TimePickerStyle(tokens); return *this; }
     TimePickerBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }
     TimePickerBuilder& zIndex(int value) { zIndex_ = value; return *this; }
-    TimePickerBuilder& z(int value) { return zIndex(value); }
     TimePickerBuilder& onChange(std::function<void(int, int)> callback) { onChange_ = std::move(callback); return *this; }
     TimePickerBuilder& onOpenChange(std::function<void(bool)> callback) { onOpenChange_ = std::move(callback); return *this; }
 
@@ -422,7 +421,7 @@ private:
     int zIndex_ = 1000;
 };
 
-inline TimePickerBuilder timepicker(core::dsl::Ui& ui, const std::string& id) {
+inline TimePickerBuilder timePicker(core::dsl::Ui& ui, const std::string& id) {
     return TimePickerBuilder(ui, id);
 }
 

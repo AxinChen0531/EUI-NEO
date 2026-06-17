@@ -294,7 +294,7 @@ void label(eui::Ui& ui,
         .horizontalAlign(align)
         .verticalAlign(eui::VerticalAlign::Center);
     if (titleFont) {
-        builder.customFont("YouSheBiaoTiHei");
+        builder.fontFamily("YouSheBiaoTiHei");
     }
     builder.build();
 }
@@ -372,13 +372,13 @@ void composeSearch(eui::Ui& ui, float x, float y, float width, const Palette& p)
         .x(x)
         .y(y)
         .size(width, 40.0f)
-        .z(80)
+        .zIndex(80)
         .content([&] {
             components::input(ui, "search.input")
                 .theme(themeTokens())
                 .size(width, 40.0f)
                 .placeholder("Search city or UTC")
-                .text(state.searchText)
+                .value(state.searchText)
                 .fontSize(16.0f)
                 .onChange([](const std::string& value) {
                     state.searchText = value;
@@ -399,7 +399,7 @@ void composeSearch(eui::Ui& ui, float x, float y, float width, const Palette& p)
         .x(x)
         .y(y + 48.0f)
         .size(width, height)
-        .z(200)
+        .zIndex(200)
         .content([&] {
             ui.rect("search.results.bg")
                 .size(width, height)
@@ -601,7 +601,7 @@ void composeCityCard(eui::Ui& ui, float x, float y, float width, float height, i
                 .size(closeSize, closeSize)
                 .states(kClear, alpha(subText, 0.18f), alpha(subText, 0.28f))
                 .radius(8.0f)
-                .z(20)
+                .zIndex(20)
                 .onClick([cityIndex] {
                     removeFavorite(cityIndex);
                 })
@@ -616,7 +616,7 @@ void composeCityCard(eui::Ui& ui, float x, float y, float width, float height, i
                 .color(subText)
                 .horizontalAlign(eui::HorizontalAlign::Center)
                 .verticalAlign(eui::VerticalAlign::Center)
-                .z(21)
+                .zIndex(21)
                 .build();
         })
         .build();

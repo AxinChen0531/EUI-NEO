@@ -11,7 +11,7 @@
 namespace components {
 
 struct SliderStyle {
-    SliderStyle() : SliderStyle(theme::DarkThemeColors()) {}
+    SliderStyle() : SliderStyle(theme::dark()) {}
 
     explicit SliderStyle(const theme::ThemeColorTokens& tokens) {
         track = core::mixColor(tokens.surfaceHover, tokens.surfaceActive, tokens.dark ? 0.24f : 0.18f);
@@ -83,7 +83,7 @@ public:
                     .states(theme::color(0.0f, 0.0f, 0.0f, 0.0f),
                             theme::color(0.0f, 0.0f, 0.0f, 0.0f),
                             theme::color(0.0f, 0.0f, 0.0f, 0.0f))
-                    .z(10)
+                    .zIndex(10)
                     .interactive()
                     .sliderInputFrom(id_)
                     .build();

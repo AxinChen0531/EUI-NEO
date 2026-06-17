@@ -14,7 +14,7 @@
 namespace components {
 
 struct PieChartStyle {
-    PieChartStyle() : PieChartStyle(theme::DarkThemeColors()) {}
+    PieChartStyle() : PieChartStyle(theme::dark()) {}
 
     explicit PieChartStyle(const theme::ThemeColorTokens& tokens) {
         background = tokens.surface;
@@ -269,10 +269,6 @@ private:
     float width_ = 206.0f;
     float height_ = 236.0f;
 };
-
-inline PieChartBuilder piechart(core::dsl::Ui& ui, const std::string& id) {
-    return PieChartBuilder(ui, id);
-}
 
 inline PieChartBuilder pieChart(core::dsl::Ui& ui, const std::string& id) {
     return PieChartBuilder(ui, id);

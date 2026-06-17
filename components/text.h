@@ -36,24 +36,12 @@ inline TextStyle subtitleTextStyle(const theme::ThemeColorTokens& tokens, const 
 
 inline core::dsl::TextBuilder text(core::dsl::Ui& ui, const std::string& id) {
     auto builder = ui.text(id);
-    builder.color(theme::DarkThemeColors().text);
+    builder.color(theme::dark().text);
     return builder;
 }
 
 inline core::dsl::TextBuilder text(core::dsl::Ui& ui, const std::string& id, const theme::ThemeColorTokens& tokens) {
     auto builder = ui.text(id);
-    builder.color(tokens.text);
-    return builder;
-}
-
-inline core::dsl::TextBuilder label(core::dsl::Ui& ui, const std::string& id) {
-    auto builder = ui.label(id);
-    builder.color(theme::DarkThemeColors().text);
-    return builder;
-}
-
-inline core::dsl::TextBuilder label(core::dsl::Ui& ui, const std::string& id, const theme::ThemeColorTokens& tokens) {
-    auto builder = ui.label(id);
     builder.color(tokens.text);
     return builder;
 }

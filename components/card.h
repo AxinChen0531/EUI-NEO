@@ -11,7 +11,7 @@
 namespace components {
 
 struct CardStyle {
-    CardStyle() : CardStyle(theme::DarkThemeColors()) {}
+    CardStyle() : CardStyle(theme::dark()) {}
 
     explicit CardStyle(const theme::ThemeColorTokens& tokens) {
         color = theme::pageVisuals(tokens).cardColor;
@@ -54,7 +54,6 @@ public:
     }
     CardBuilder& wrapContentHeight() { height_ = core::SizeValue::wrapContent(); return *this; }
     CardBuilder& padding(float value) { style_.inset = std::max(0.0f, value); return *this; }
-    CardBuilder& inset(float value) { return padding(value); }
     CardBuilder& style(const CardStyle& value) { style_ = value; return *this; }
     CardBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = CardStyle(tokens); return *this; }
     CardBuilder& color(const core::Color& value) { style_.color = value; return *this; }
@@ -63,7 +62,6 @@ public:
     CardBuilder& shadow(const core::Shadow& value) { style_.shadow = value; return *this; }
     CardBuilder& opacity(float value) { style_.opacity = std::clamp(value, 0.0f, 1.0f); return *this; }
     CardBuilder& zIndex(int value) { zIndex_ = value; return *this; }
-    CardBuilder& z(int value) { return zIndex(value); }
 
     template <typename ComposeFn>
     CardBuilder& content(ComposeFn&& compose) {

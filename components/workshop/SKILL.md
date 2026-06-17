@@ -101,7 +101,7 @@ inline MyComponentBuilder myComponent(core::dsl::Ui& ui, const std::string& id) 
 
 ## Interaction Rules
 
-- Use DSL events (`onClick`, `onPress`, `onRelease`, `onMove`, `onHoverChanged`) or `components::mouseArea`.
+- Use DSL events (`onClick`, `onPress`, `onRelease`, `onMove`, `onHover`) or `components::mouseArea`.
 - For pure visual pointer-follow transforms, prefer Runtime binding (`.runtimePointerTransformFrom(...)` or `.runtimePointerTiltFrom(...)`) over `mouseArea.onMove(...)` state maps so hover movement does not recompose the component.
 - Use `components::mouseArea(...).onMove(...)` only when the component needs callback-driven business state or visual state that Runtime cannot derive yet.
 - Map pointer-local coordinates into normalized `[-0.5, 0.5]` values before applying `.rotateX(...)`, `.rotateY(...)`, or light offsets.

@@ -12,7 +12,7 @@
 namespace components {
 
 struct DialogStyle {
-    DialogStyle() : DialogStyle(theme::DarkThemeColors()) {}
+    DialogStyle() : DialogStyle(theme::dark()) {}
 
     explicit DialogStyle(const theme::ThemeColorTokens& tokens) {
         backdrop = theme::color(0.0f, 0.0f, 0.0f, tokens.dark ? 0.46f : 0.28f);
@@ -60,7 +60,6 @@ public:
     DialogBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = DialogStyle(tokens); return *this; }
     DialogBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }
     DialogBuilder& zIndex(int value) { zIndex_ = value; return *this; }
-    DialogBuilder& z(int value) { return zIndex(value); }
     DialogBuilder& content(std::function<void()> callback) { content_ = std::move(callback); return *this; }
     DialogBuilder& onPrimary(std::function<void()> callback) { onPrimary_ = std::move(callback); return *this; }
     DialogBuilder& onSecondary(std::function<void()> callback) { onSecondary_ = std::move(callback); return *this; }

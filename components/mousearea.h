@@ -48,28 +48,20 @@ public:
     MouseAreaBuilder& width(float value) { width_ = value; return *this; }
     MouseAreaBuilder& height(float value) { height_ = value; return *this; }
     MouseAreaBuilder& zIndex(int value) { zIndex_ = value; hasZIndex_ = true; return *this; }
-    MouseAreaBuilder& z(int value) { return zIndex(value); }
     MouseAreaBuilder& radius(float value) { radius_ = std::max(0.0f, value); return *this; }
-    MouseAreaBuilder& rounding(float value) { return radius(value); }
     MouseAreaBuilder& color(const core::Color& value) { color_ = value; return *this; }
     MouseAreaBuilder& cursor(core::CursorShape value) { cursor_ = value; return *this; }
     MouseAreaBuilder& disabled(bool value = true) { disabled_ = value; return *this; }
-    MouseAreaBuilder& enabled(bool value = true) { disabled_ = !value; return *this; }
     MouseAreaBuilder& scrollStep(float value) { scrollStep_ = std::max(0.0f, value); return *this; }
     MouseAreaBuilder& maxScrollStep(float value) { maxScrollStep_ = std::max(0.0f, value); return *this; }
     MouseAreaBuilder& dragThreshold(float value) { dragThreshold_ = std::max(0.0f, value); return *this; }
     MouseAreaBuilder& suppressClickAfterDrag(bool value = true) { suppressClickAfterDrag_ = value; return *this; }
 
-    MouseAreaBuilder& onClick(std::function<void()> callback) { onClick_ = std::move(callback); return *this; }
-    MouseAreaBuilder& onClick(std::function<void(const MouseEvent&)> callback) { onClickAt_ = std::move(callback); return *this; }
-    MouseAreaBuilder& onTap(std::function<void()> callback) { return onClick(std::move(callback)); }
-    MouseAreaBuilder& onTap(std::function<void(const MouseEvent&)> callback) { return onClick(std::move(callback)); }
+    MouseAreaBuilder& onTap(std::function<void()> callback) { onClick_ = std::move(callback); return *this; }
+    MouseAreaBuilder& onTap(std::function<void(const MouseEvent&)> callback) { onClickAt_ = std::move(callback); return *this; }
     MouseAreaBuilder& onPress(std::function<void(const MouseEvent&)> callback) { onPress_ = std::move(callback); return *this; }
-    MouseAreaBuilder& onPressed(std::function<void(const MouseEvent&)> callback) { return onPress(std::move(callback)); }
     MouseAreaBuilder& onRelease(std::function<void(const MouseEvent&)> callback) { onRelease_ = std::move(callback); return *this; }
-    MouseAreaBuilder& onReleased(std::function<void(const MouseEvent&)> callback) { return onRelease(std::move(callback)); }
-    MouseAreaBuilder& onHoverChanged(std::function<void(bool)> callback) { onHoverChanged_ = std::move(callback); return *this; }
-    MouseAreaBuilder& onHover(std::function<void(bool)> callback) { return onHoverChanged(std::move(callback)); }
+    MouseAreaBuilder& onHover(std::function<void(bool)> callback) { onHover_ = std::move(callback); return *this; }
     MouseAreaBuilder& onEnter(std::function<void()> callback) { onEnter_ = std::move(callback); return *this; }
     MouseAreaBuilder& onLeave(std::function<void()> callback) { onLeave_ = std::move(callback); return *this; }
     MouseAreaBuilder& onMove(std::function<bool(const MouseEvent&)> callback) { onMove_ = std::move(callback); return *this; }
@@ -86,7 +78,6 @@ public:
     MouseAreaBuilder& onDrag(std::function<void(const MouseDragEvent&)> callback) { onDrag_ = std::move(callback); return *this; }
     MouseAreaBuilder& onDragEnd(std::function<void(const MouseDragEvent&)> callback) { onDragEnd_ = std::move(callback); return *this; }
     MouseAreaBuilder& onScroll(std::function<void(const MouseScrollEvent&)> callback) { onScroll_ = std::move(callback); return *this; }
-    MouseAreaBuilder& onWheel(std::function<void(const MouseScrollEvent&)> callback) { return onScroll(std::move(callback)); }
     MouseAreaBuilder& onContextMenu(std::function<void(const MouseEvent&)> callback) { onContextMenu_ = std::move(callback); return *this; }
 
     void build() {
@@ -101,7 +92,7 @@ public:
         const std::function<void(const MouseEvent&)> onClickAt = onClickAt_;
         const std::function<void(const MouseEvent&)> onPress = onPress_;
         const std::function<void(const MouseEvent&)> onRelease = onRelease_;
-        const std::function<void(bool)> onHoverChanged = onHoverChanged_;
+        const std::function<void(bool)> onHover = onHover_;
         const std::function<void()> onEnter = onEnter_;
         const std::function<void()> onLeave = onLeave_;
         const std::function<bool(const MouseEvent&)> onMove = onMove_;
@@ -171,10 +162,10 @@ public:
             });
         }
 
-        if (onHoverChanged || onEnter || onLeave) {
-            area.onHoverChanged([onHoverChanged, onEnter, onLeave](bool hover) {
-                if (onHoverChanged) {
-                    onHoverChanged(hover);
+        if (onHover || onEnter || onLeave) {
+            area.onHover([onHover, onEnter, onLeave](bool hover) {
+                if (onHover) {
+                    onHover(hover);
                 }
                 if (hover && onEnter) {
                     onEnter();
@@ -324,7 +315,7 @@ private:
     std::function<void(const MouseEvent&)> onClickAt_;
     std::function<void(const MouseEvent&)> onPress_;
     std::function<void(const MouseEvent&)> onRelease_;
-    std::function<void(bool)> onHoverChanged_;
+    std::function<void(bool)> onHover_;
     std::function<void()> onEnter_;
     std::function<void()> onLeave_;
     std::function<bool(const MouseEvent&)> onMove_;

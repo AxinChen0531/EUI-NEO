@@ -12,7 +12,7 @@
 namespace components {
 
 struct RadioStyle {
-    RadioStyle() : RadioStyle(theme::DarkThemeColors()) {}
+    RadioStyle() : RadioStyle(theme::dark()) {}
 
     explicit RadioStyle(const theme::ThemeColorTokens& tokens) {
         outer = tokens.surface;
@@ -40,7 +40,6 @@ public:
 
     RadioBuilder& size(float width, float height) { width_ = width; height_ = height; return *this; }
     RadioBuilder& selected(bool value) { selected_ = value; return *this; }
-    RadioBuilder& checked(bool value) { return selected(value); }
     RadioBuilder& text(std::string value) { text_ = std::move(value); return *this; }
     RadioBuilder& fontSize(float value) { fontSize_ = std::max(1.0f, value); return *this; }
     RadioBuilder& dotSize(float value) { dotSize_ = std::max(10.0f, value); return *this; }
@@ -51,7 +50,6 @@ public:
         transition_ = core::Transition::make(duration, ease);
         return *this;
     }
-    RadioBuilder& onSelect(std::function<void()> callback) { onSelect_ = std::move(callback); return *this; }
     RadioBuilder& onChange(std::function<void(bool)> callback) { onChange_ = std::move(callback); return *this; }
 
     void build() {
@@ -70,7 +68,6 @@ public:
         core::Transition dotTransition = transition_;
         dotTransition.durationSeconds = selected_ ? 0.16f : 0.10f;
         dotTransition.ease = core::Ease::OutCubic;
-        const std::function<void()> onSelect = onSelect_;
         const std::function<void(bool)> onChange = onChange_;
 
         ui_.stack(id_)
@@ -81,10 +78,7 @@ public:
                     .states(theme::color(0.0f, 0.0f, 0.0f, 0.0f), style_.rowHover, style_.rowPressed)
                     .radius(std::max(6.0f, height_ * 0.20f))
                     .transition(transition_)
-                    .onClick([onSelect, onChange] {
-                        if (onSelect) {
-                            onSelect();
-                        }
+                    .onClick([onChange] {
                         if (onChange) {
                             onChange(true);
                         }
@@ -137,7 +131,6 @@ private:
     std::string id_;
     RadioStyle style_;
     core::Transition transition_ = core::Transition::make(0.16f, core::Ease::OutCubic);
-    std::function<void()> onSelect_;
     std::function<void(bool)> onChange_;
     std::string text_;
     bool selected_ = false;

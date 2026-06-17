@@ -12,7 +12,7 @@
 namespace components {
 
 struct DropdownStyle {
-    DropdownStyle() : DropdownStyle(theme::DarkThemeColors()) {}
+    DropdownStyle() : DropdownStyle(theme::dark()) {}
 
     explicit DropdownStyle(const theme::ThemeColorTokens& tokens) {
         field = tokens.surface;
@@ -61,7 +61,6 @@ public:
     DropdownBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = DropdownStyle(tokens); return *this; }
     DropdownBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }
     DropdownBuilder& zIndex(int value) { zIndex_ = value; return *this; }
-    DropdownBuilder& z(int value) { return zIndex(value); }
     DropdownBuilder& onChange(std::function<void(int)> callback) { onChange_ = std::move(callback); return *this; }
     DropdownBuilder& onOpenChange(std::function<void(bool)> callback) { onOpenChange_ = std::move(callback); return *this; }
 

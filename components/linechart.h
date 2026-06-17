@@ -13,7 +13,7 @@
 namespace components {
 
 struct LineChartStyle {
-    LineChartStyle() : LineChartStyle(theme::DarkThemeColors()) {}
+    LineChartStyle() : LineChartStyle(theme::dark()) {}
 
     explicit LineChartStyle(const theme::ThemeColorTokens& tokens) {
         background = tokens.surface;
@@ -229,10 +229,6 @@ private:
     float width_ = 206.0f;
     float height_ = 236.0f;
 };
-
-inline LineChartBuilder linechart(core::dsl::Ui& ui, const std::string& id) {
-    return LineChartBuilder(ui, id);
-}
 
 inline LineChartBuilder lineChart(core::dsl::Ui& ui, const std::string& id) {
     return LineChartBuilder(ui, id);

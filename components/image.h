@@ -8,7 +8,7 @@
 namespace components {
 
 struct ImageStyle {
-    ImageStyle() : ImageStyle(theme::DarkThemeColors()) {}
+    ImageStyle() : ImageStyle(theme::dark()) {}
 
     explicit ImageStyle(const theme::ThemeColorTokens& tokens) {
         tint = theme::color(1.0f, 1.0f, 1.0f, 1.0f);

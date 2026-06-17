@@ -12,7 +12,7 @@
 namespace components {
 
 struct SwitchStyle {
-    SwitchStyle() : SwitchStyle(theme::DarkThemeColors()) {}
+    SwitchStyle() : SwitchStyle(theme::dark()) {}
 
     explicit SwitchStyle(const theme::ThemeColorTokens& tokens) {
         off = core::mixColor(tokens.surfaceHover, tokens.surfaceActive, 0.30f);
@@ -38,8 +38,7 @@ public:
 
     SwitchBuilder& size(float width, float height) { width_ = width; height_ = height; return *this; }
     SwitchBuilder& checked(bool value) { checked_ = value; return *this; }
-    SwitchBuilder& label(std::string value) { label_ = std::move(value); return *this; }
-    SwitchBuilder& text(std::string value) { return label(std::move(value)); }
+    SwitchBuilder& text(std::string value) { label_ = std::move(value); return *this; }
     SwitchBuilder& fontSize(float value) { fontSize_ = std::max(1.0f, value); return *this; }
     SwitchBuilder& trackSize(float width, float height) {
         trackWidth_ = std::max(20.0f, width);

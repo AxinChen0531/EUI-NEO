@@ -10,7 +10,7 @@
 namespace components {
 
 struct ProgressStyle {
-    ProgressStyle() : ProgressStyle(theme::DarkThemeColors()) {}
+    ProgressStyle() : ProgressStyle(theme::dark()) {}
 
     explicit ProgressStyle(const theme::ThemeColorTokens& tokens)
         : track(tokens.surfaceHover), fill(tokens.primary) {}

@@ -102,11 +102,6 @@ public:
         return *this;
     }
 
-    NeumorphicButtonBuilder& enabled(bool value = true) {
-        disabled_ = !value;
-        return *this;
-    }
-
     NeumorphicButtonBuilder& transition(const core::Transition& value) {
         transition_ = value;
         return *this;

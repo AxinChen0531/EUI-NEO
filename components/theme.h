@@ -48,8 +48,6 @@ struct FieldVisualTokens {
     float popupShadowOffsetY = 0.0f;
 };
 
-using UIFieldVisualTokens = FieldVisualTokens;
-
 struct PageHeaderLayout {
     float titleY = 0.0f;
     float subtitleY = 0.0f;
@@ -100,14 +98,6 @@ inline ThemeColorTokens dark() {
     };
 }
 
-inline ThemeColorTokens LightThemeColors() {
-    return light();
-}
-
-inline ThemeColorTokens DarkThemeColors() {
-    return dark();
-}
-
 inline PageVisualTokens pageVisuals(const ThemeColorTokens& tokens) {
     return {
         withAlpha(tokens.text, 0.98f),
@@ -139,14 +129,6 @@ inline FieldVisualTokens fieldVisuals(const ThemeColorTokens& tokens) {
     return result;
 }
 
-inline PageVisualTokens CurrentPageVisuals(const ThemeColorTokens& tokens) {
-    return pageVisuals(tokens);
-}
-
-inline UIFieldVisualTokens CurrentFieldVisuals(const ThemeColorTokens& tokens) {
-    return fieldVisuals(tokens);
-}
-
 inline core::Color resolveFieldFill(const ThemeColorTokens& tokens,
                                     core::Color baseColor,
                                     float hoverAmount,
@@ -158,13 +140,6 @@ inline core::Color resolveFieldFill(const ThemeColorTokens& tokens,
         ? core::mixColor(base, tokens.surfaceHover, 0.65f)
         : tokens.surfaceHover;
     return core::mixColor(core::mixColor(base, tokens.surfaceActive, active), hoverColor, hover);
-}
-
-inline core::Color ResolveFieldFill(const ThemeColorTokens& tokens,
-                                    core::Color baseColor,
-                                    float hoverAmount,
-                                    float activeAmount) {
-    return resolveFieldFill(tokens, baseColor, hoverAmount, activeAmount);
 }
 
 inline core::Color buttonHover(const ThemeColorTokens& tokens, core::Color base) {

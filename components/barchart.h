@@ -12,7 +12,7 @@
 namespace components {
 
 struct BarChartStyle {
-    BarChartStyle() : BarChartStyle(theme::DarkThemeColors()) {}
+    BarChartStyle() : BarChartStyle(theme::dark()) {}
 
     explicit BarChartStyle(const theme::ThemeColorTokens& tokens) {
         background = tokens.surface;
@@ -198,10 +198,6 @@ private:
     float width_ = 206.0f;
     float height_ = 236.0f;
 };
-
-inline BarChartBuilder barchart(core::dsl::Ui& ui, const std::string& id) {
-    return BarChartBuilder(ui, id);
-}
 
 inline BarChartBuilder barChart(core::dsl::Ui& ui, const std::string& id) {
     return BarChartBuilder(ui, id);

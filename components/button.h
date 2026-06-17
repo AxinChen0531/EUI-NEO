@@ -11,7 +11,7 @@
 namespace components {
 
 struct ButtonStyle {
-    ButtonStyle() : ButtonStyle(theme::DarkThemeColors()) {}
+    ButtonStyle() : ButtonStyle(theme::dark()) {}
 
     explicit ButtonStyle(const theme::ThemeColorTokens& tokens, bool primary = true) {
         const core::Color base = primary ? tokens.primary : tokens.surface;
@@ -55,13 +55,9 @@ public:
         style_ = ButtonStyle(tokens, primary);
         return *this;
     }
-    ButtonBuilder& primaryTheme(const theme::ThemeColorTokens& tokens) { return theme(tokens, true); }
-    ButtonBuilder& secondaryTheme(const theme::ThemeColorTokens& tokens) { return theme(tokens, false); }
     ButtonBuilder& radius(float value) { style_.radius = value; return *this; }
-    ButtonBuilder& rounding(float value) { return radius(value); }
     ButtonBuilder& opacity(float value) { style_.opacity = std::clamp(value, 0.0f, 1.0f); return *this; }
     ButtonBuilder& disabled(bool value = true) { disabled_ = value; return *this; }
-    ButtonBuilder& enabled(bool value = true) { disabled_ = !value; return *this; }
     ButtonBuilder& translate(float x, float y) { translateX_ = x; translateY_ = y; return *this; }
     ButtonBuilder& translateX(float value) { translateX_ = value; return *this; }
     ButtonBuilder& translateY(float value) { translateY_ = value; return *this; }

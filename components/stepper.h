@@ -13,7 +13,7 @@
 namespace components {
 
 struct StepperStyle {
-    StepperStyle() : StepperStyle(theme::DarkThemeColors()) {}
+    StepperStyle() : StepperStyle(theme::dark()) {}
 
     explicit StepperStyle(const theme::ThemeColorTokens& tokens) {
         button = tokens.surface;
@@ -49,14 +49,11 @@ public:
     StepperBuilder& size(float width, float height) { width_ = width; height_ = height; return *this; }
     StepperBuilder& value(long long value) { value_ = value; return *this; }
     StepperBuilder& step(long long value) { step_ = value; return *this; }
-    StepperBuilder& minimum(long long value) { min_ = value; hasMin_ = true; return *this; }
-    StepperBuilder& min(long long value) { return minimum(value); }
-    StepperBuilder& maximum(long long value) { max_ = value; hasMax_ = true; return *this; }
-    StepperBuilder& max(long long value) { return maximum(value); }
+    StepperBuilder& min(long long value) { min_ = value; hasMin_ = true; return *this; }
+    StepperBuilder& max(long long value) { max_ = value; hasMax_ = true; return *this; }
     StepperBuilder& base(int value) { base_ = value; return *this; }
     StepperBuilder& digits(int value) { digits_ = std::max(0, value); return *this; }
     StepperBuilder& bitWidth(int value) { bitWidth_ = std::max(0, value); return *this; }
-    StepperBuilder& bits(int value) { return bitWidth(value); }
     StepperBuilder& showBasePrefix(bool value = true) { showBasePrefix_ = value; return *this; }
     StepperBuilder& prefix(std::string value) { prefix_ = std::move(value); return *this; }
     StepperBuilder& uppercase(bool value = true) { uppercase_ = value; return *this; }

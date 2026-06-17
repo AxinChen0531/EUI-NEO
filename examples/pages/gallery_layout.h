@@ -397,10 +397,10 @@ struct GalleryLayoutPage {
             .content([&] {
                 ui.rect(id + ".bg")
                     .fill()
-                    .overlay()
+                    .ignoreLayout()
                     .color(surfaceSoft())
                     .radius(10.0f)
-                    .z(-1)
+                    .zIndex(-1)
                     .build();
                 pill(ui, id + ".chip", label, std::max(46.0f, width - 26.0f), 28.0f, main == eui::Align::CENTER ? accent() : surfaceActive());
             })

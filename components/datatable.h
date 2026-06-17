@@ -11,7 +11,7 @@
 namespace components {
 
 struct DataTableStyle {
-    DataTableStyle() : DataTableStyle(theme::DarkThemeColors()) {}
+    DataTableStyle() : DataTableStyle(theme::dark()) {}
 
     explicit DataTableStyle(const theme::ThemeColorTokens& tokens) {
         background = tokens.surface;
@@ -189,10 +189,6 @@ private:
 };
 
 inline DataTableBuilder dataTable(core::dsl::Ui& ui, const std::string& id) {
-    return DataTableBuilder(ui, id);
-}
-
-inline DataTableBuilder datatable(core::dsl::Ui& ui, const std::string& id) {
     return DataTableBuilder(ui, id);
 }
 

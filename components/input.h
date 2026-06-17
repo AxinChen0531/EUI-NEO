@@ -13,7 +13,7 @@
 namespace components {
 
 struct InputStyle {
-    InputStyle() : InputStyle(theme::DarkThemeColors()) {}
+    InputStyle() : InputStyle(theme::dark()) {}
 
     explicit InputStyle(const theme::ThemeColorTokens& tokens) {
         background = tokens.surface;
@@ -47,8 +47,7 @@ public:
         : ui_(ui), id_(std::move(id)) {}
 
     InputBuilder& size(float width, float height) { width_ = width; height_ = height; return *this; }
-    InputBuilder& text(std::string value) { text_ = std::move(value); return *this; }
-    InputBuilder& value(std::string value) { return text(std::move(value)); }
+    InputBuilder& value(std::string value) { text_ = std::move(value); return *this; }
     InputBuilder& placeholder(std::string value) { placeholder_ = std::move(value); return *this; }
     InputBuilder& multiline(bool value = true) { multiline_ = value; return *this; }
     InputBuilder& fontSize(float value) { fontSize_ = std::max(1.0f, value); return *this; }

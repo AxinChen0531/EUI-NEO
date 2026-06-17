@@ -10,7 +10,7 @@
 namespace components {
 
 struct ScrollStyle {
-    ScrollStyle() : ScrollStyle(theme::DarkThemeColors()) {}
+    ScrollStyle() : ScrollStyle(theme::dark()) {}
 
     explicit ScrollStyle(const theme::ThemeColorTokens& tokens) {
         track = theme::withOpacity(tokens.surfaceHover, tokens.dark ? 0.34f : 0.46f);
@@ -43,14 +43,10 @@ public:
     ScrollBuilder& size(float width, float height) { width_ = width; height_ = height; return *this; }
     ScrollBuilder& state(const std::string& id) { stateId_ = id; return *this; }
     ScrollBuilder& offset(float value) { offset_ = std::max(0.0f, value); return *this; }
-    ScrollBuilder& value(float value) { return offset(value); }
     ScrollBuilder& viewport(float value) { viewport_ = std::max(0.0f, value); return *this; }
-    ScrollBuilder& viewportHeight(float value) { return viewport(value); }
     ScrollBuilder& content(float value) { content_ = std::max(0.0f, value); return *this; }
-    ScrollBuilder& contentHeight(float value) { return content(value); }
     ScrollBuilder& step(float value) { step_ = std::max(1.0f, value); return *this; }
     ScrollBuilder& zIndex(int value) { zIndex_ = value; return *this; }
-    ScrollBuilder& z(int value) { return zIndex(value); }
     ScrollBuilder& style(const ScrollStyle& value) { style_ = value; return *this; }
     ScrollBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = ScrollStyle(tokens); return *this; }
     ScrollBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }

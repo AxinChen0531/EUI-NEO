@@ -367,17 +367,9 @@ public:
         return self();
     }
 
-    Derived& spacing(float value) {
-        return gap(value);
-    }
-
     Derived& lineGap(float value) {
         element_->lineSpacing = std::max(0.0f, value);
         return self();
-    }
-
-    Derived& lineSpacing(float value) {
-        return lineGap(value);
     }
 
     Derived& padding(float value) {
@@ -474,26 +466,14 @@ public:
         return self();
     }
 
-    Derived& overlay(bool value = true) {
-        return ignoreLayout(value);
-    }
-
     Derived& zIndex(int value) {
         element_->zIndex = value;
         return self();
     }
 
-    Derived& z(int value) {
-        return zIndex(value);
-    }
-
     Derived& clip(bool value = true) {
         element_->clip = value;
         return self();
-    }
-
-    Derived& overflowHidden(bool value = true) {
-        return clip(value);
     }
 
     Derived& pressedScale(float value) {
@@ -528,11 +508,6 @@ public:
 
     Derived& disabled(bool value = true) {
         element_->disabled = value;
-        return self();
-    }
-
-    Derived& enabled(bool value = true) {
-        element_->disabled = !value;
         return self();
     }
 
@@ -612,10 +587,6 @@ public:
         return self();
     }
 
-    Derived& rotation(float radians) {
-        return rotate(radians);
-    }
-
     Derived& perspective(float value) {
         element_->transform.perspective = std::max(0.0f, value);
         return self();
@@ -683,7 +654,7 @@ public:
         return self();
     }
 
-    Derived& onHoverChanged(std::function<void(bool)> callback) {
+    Derived& onHover(std::function<void(bool)> callback) {
         element_->interactive = true;
         element_->onHoverChanged = std::move(callback);
         return self();
@@ -804,15 +775,6 @@ public:
         return this->self();
     }
 
-    Derived& background(const Color& value) {
-        return color(value);
-    }
-
-    Derived& background(float r, float g, float b, float a = 1.0f) {
-        this->element_->color = {r, g, b, a};
-        return this->self();
-    }
-
     Derived& gradient(const Gradient& value) {
         this->element_->gradient = value;
         return this->self();
@@ -823,13 +785,9 @@ public:
         return this->self();
     }
 
-    Derived& rounding(float value) {
+    Derived& radius(float value) {
         this->element_->radius = std::max(0.0f, value);
         return this->self();
-    }
-
-    Derived& radius(float value) {
-        return rounding(value);
     }
 
     Derived& border(float widthValue, const Color& colorValue) {
@@ -931,10 +889,6 @@ public:
     Derived& rotateZ(float radians) {
         this->element_->transform.rotate = radians;
         return this->self();
-    }
-
-    Derived& rotation(float radians) {
-        return rotate(radians);
     }
 
     Derived& perspective(float value) {
@@ -1092,14 +1046,6 @@ public:
         return *this;
     }
 
-    TextBuilder& font(const std::string& value) {
-        return fontFamily(value);
-    }
-
-    TextBuilder& customFont(const std::string& value) {
-        return fontFamily(value);
-    }
-
     TextBuilder& fontSize(float value) {
         element_->fontSize = std::max(1.0f, value);
         return *this;
@@ -1168,14 +1114,6 @@ public:
         return *this;
     }
 
-    ImageBuilder& path(const std::string& value) {
-        return source(value);
-    }
-
-    ImageBuilder& url(const std::string& value) {
-        return source(value);
-    }
-
     ImageBuilder& bingDaily(int idx = 0, const std::string& mkt = "zh-CN") {
         element_->imageSource = "bing://daily?idx=" + std::to_string(std::max(0, idx)) + "&mkt=" + mkt;
         return *this;
@@ -1186,17 +1124,9 @@ public:
         return *this;
     }
 
-    ImageBuilder& color(const Color& value) {
-        return tint(value);
-    }
-
     ImageBuilder& radius(float value) {
         element_->radius = std::max(0.0f, value);
         return *this;
-    }
-
-    ImageBuilder& rounding(float value) {
-        return radius(value);
     }
 
     ImageBuilder& opacity(float value) {
@@ -1289,10 +1219,6 @@ public:
         return *this;
     }
 
-    ImageBuilder& rotation(float radians) {
-        return rotate(radians);
-    }
-
     ImageBuilder& perspective(float value) {
         element_->transform.perspective = std::max(0.0f, value);
         return *this;
@@ -1314,9 +1240,6 @@ public:
         return *this;
     }
 
-    SvgBuilder& markup(std::string value) {
-        return source(std::move(value));
-    }
 };
 
 class Ui {
@@ -1364,10 +1287,6 @@ public:
 
     TextBuilder text(const std::string& id) {
         return TextBuilder(*this, addElement(ElementKind::Text, id));
-    }
-
-    TextBuilder label(const std::string& id) {
-        return text(id);
     }
 
     ImageBuilder image(const std::string& id) {

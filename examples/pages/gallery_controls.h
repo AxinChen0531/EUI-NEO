@@ -217,7 +217,7 @@ struct GalleryControlsPage {
                         .theme(themeColors())
                         .size(componentCardWidth, 32.0f)
                         .checked(switchOn)
-                        .label("Switch")
+                        .text("Switch")
                         .onChange([this](bool value) { switchOn = value; })
                         .build();
                 })
@@ -232,7 +232,7 @@ struct GalleryControlsPage {
                         .size(componentCardWidth, 30.0f)
                         .selected(radioA)
                         .text("Radio A")
-                        .onSelect([this] { radioA = true; })
+                        .onChange([this](bool selected) { if (selected) { radioA = true; } })
                         .build();
 
                     components::radio(ui, "control.radio.b")
@@ -240,7 +240,7 @@ struct GalleryControlsPage {
                         .size(componentCardWidth, 30.0f)
                         .selected(!radioA)
                         .text("Radio B")
-                        .onSelect([this] { radioA = false; })
+                        .onChange([this](bool selected) { if (selected) { radioA = false; } })
                         .build();
                 })
                 .build();
@@ -324,8 +324,8 @@ struct GalleryControlsPage {
                                 .size(stepperWidth, 40.0f)
                                 .value(stepperDec)
                                 .step(5)
-                                .minimum(0)
-                                .maximum(9999)
+                                .min(0)
+                                .max(9999)
                                 .base(10)
                                 .digits(4)
                                 .showBasePrefix(false)
@@ -663,7 +663,7 @@ struct GalleryControlsPage {
         .size(fieldWidth, chartHeight)
         .gap(chartGap)
         .content([&] {
-            components::linechart(ui, "control.chart.line")
+            components::lineChart(ui, "control.chart.line")
                 .theme(themeColors())
                 .size(chartWidth, chartHeight)
                 .title("LineChart")
@@ -672,7 +672,7 @@ struct GalleryControlsPage {
                 .transition(pageTransition())
                 .build();
 
-            components::barchart(ui, "control.chart.bar")
+            components::barChart(ui, "control.chart.bar")
                 .theme(themeColors())
                 .size(chartWidth, chartHeight)
                 .title("BarChart")
@@ -681,7 +681,7 @@ struct GalleryControlsPage {
                 .transition(pageTransition())
                 .build();
 
-            components::piechart(ui, "control.chart.pie")
+            components::pieChart(ui, "control.chart.pie")
                 .theme(themeColors())
                 .size(chartWidth, chartHeight)
                 .title("PieChart")
@@ -772,26 +772,26 @@ struct GalleryControlsPage {
         })
         .build();
 
-    components::datepicker(ui, "feedback.datepicker")
+    components::datePicker(ui, "feedback.datepicker")
         .theme(themeColors())
         .screen(screen.width, screen.height)
         .size(420.0f, 270.0f)
         .date(year, month, day)
         .open(dateOpen)
         .transition(pageTransition())
-        .z(1200)
+        .zIndex(1200)
         .onOpenChange([this](bool open) {
             dateOpen = open;
         })
-        .onChange([this](int year, int month, int day) {
-            year = year;
-            month = month;
-            day = day;
+        .onChange([this](int nextYear, int nextMonth, int nextDay) {
+            year = nextYear;
+            month = nextMonth;
+            day = nextDay;
             feedback = "Date changed";
         })
         .build();
 
-    components::timepicker(ui, "feedback.timepicker")
+    components::timePicker(ui, "feedback.timepicker")
         .theme(themeColors())
         .screen(screen.width, screen.height)
         .size(330.0f, 264.0f)
@@ -799,25 +799,25 @@ struct GalleryControlsPage {
         .minuteStep(5)
         .open(timeOpen)
         .transition(pageTransition())
-        .z(1200)
+        .zIndex(1200)
         .onOpenChange([this](bool open) {
             timeOpen = open;
         })
-        .onChange([this](int hour, int minute) {
-            hour = hour;
-            minute = minute;
+        .onChange([this](int nextHour, int nextMinute) {
+            hour = nextHour;
+            minute = nextMinute;
             feedback = "Time changed";
         })
         .build();
 
-    components::colorpicker(ui, "feedback.colorpicker")
+    components::colorPicker(ui, "feedback.colorpicker")
         .theme(themeColors())
         .screen(screen.width, screen.height)
         .size(420.0f, 320.0f)
         .value(sampleColor)
         .open(colorOpen)
         .transition(pageTransition())
-        .z(1200)
+        .zIndex(1200)
         .onOpenChange([this](bool open) {
             colorOpen = open;
         })

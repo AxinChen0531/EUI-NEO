@@ -13,7 +13,7 @@
 namespace components {
 
 struct TabsStyle {
-    TabsStyle() : TabsStyle(theme::DarkThemeColors()) {}
+    TabsStyle() : TabsStyle(theme::dark()) {}
 
     explicit TabsStyle(const theme::ThemeColorTokens& tokens) {
         text = theme::withOpacity(tokens.text, 0.66f);

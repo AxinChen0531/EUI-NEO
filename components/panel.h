@@ -8,7 +8,7 @@
 namespace components {
 
 struct PanelStyle {
-    PanelStyle() : PanelStyle(theme::DarkThemeColors()) {}
+    PanelStyle() : PanelStyle(theme::dark()) {}
 
     explicit PanelStyle(const theme::ThemeColorTokens& tokens) {
         color = tokens.surface;

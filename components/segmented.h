@@ -12,7 +12,7 @@
 namespace components {
 
 struct SegmentedStyle {
-    SegmentedStyle() : SegmentedStyle(theme::DarkThemeColors()) {}
+    SegmentedStyle() : SegmentedStyle(theme::dark()) {}
 
     explicit SegmentedStyle(const theme::ThemeColorTokens& tokens) {
         background = tokens.surface;

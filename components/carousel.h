@@ -21,7 +21,7 @@ struct CarouselItem {
 };
 
 struct CarouselStyle {
-    CarouselStyle() : CarouselStyle(theme::DarkThemeColors()) {}
+    CarouselStyle() : CarouselStyle(theme::dark()) {}
 
     explicit CarouselStyle(const theme::ThemeColorTokens& tokens) {
         background = tokens.surface;
@@ -55,7 +55,6 @@ public:
     CarouselBuilder& size(float width, float height) { width_ = width; height_ = height; return *this; }
     CarouselBuilder& items(std::vector<CarouselItem> value) { items_ = std::move(value); return *this; }
     CarouselBuilder& index(float value) { index_ = value; return *this; }
-    CarouselBuilder& active(int value) { index_ = static_cast<float>(value); return *this; }
     CarouselBuilder& cardWidthRatio(float value) { cardWidthRatio_ = std::clamp(value, 0.32f, 1.0f); return *this; }
     CarouselBuilder& overlap(float value) { overlap_ = std::clamp(value, 0.0f, 0.60f); return *this; }
     CarouselBuilder& parallax(float value) { parallax_ = std::max(0.0f, value); return *this; }

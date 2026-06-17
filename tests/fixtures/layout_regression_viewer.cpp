@@ -217,7 +217,7 @@ void overlayCase(eui::Ui& ui, const std::string& id, float x, float y) {
                 .content([&] {
                     ui.rect(id + ".lane.bg")
                         .fill()
-                        .overlay()
+                        .ignoreLayout()
                         .color({0.18f, 0.22f, 0.30f, 1.0f})
                         .radius(7.0f)
                         .build();

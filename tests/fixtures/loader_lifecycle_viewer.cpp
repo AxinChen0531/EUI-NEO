@@ -152,7 +152,7 @@ void counterContent(eui::Ui& ui, const std::string& id, float width) {
         .position(0.0f, 290.0f)
         .size(width, 170.0f)
         .content([&] {
-            components::piechart(ui, id + ".pie")
+            components::pieChart(ui, id + ".pie")
                 .size(width, 170.0f)
                 .title("Scoped Pie")
                 .values(std::move(values))

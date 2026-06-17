@@ -19,18 +19,14 @@ public:
 
     ScrollViewBuilder& size(float width, float height) { width_ = width; height_ = height; return *this; }
     ScrollViewBuilder& offset(float value) { offset_ = std::max(0.0f, value); return *this; }
-    ScrollViewBuilder& value(float value) { return offset(value); }
     ScrollViewBuilder& gap(float value) { gap_ = std::max(0.0f, value); return *this; }
-    ScrollViewBuilder& spacing(float value) { return gap(value); }
     ScrollViewBuilder& step(float value) { step_ = std::max(1.0f, value); return *this; }
     ScrollViewBuilder& scrollbarWidth(float value) { scrollbarWidth_ = std::max(0.0f, value); return *this; }
     ScrollViewBuilder& scrollbarGap(float value) { scrollbarGap_ = std::max(0.0f, value); return *this; }
     ScrollViewBuilder& zIndex(int value) { zIndex_ = value; return *this; }
-    ScrollViewBuilder& z(int value) { return zIndex(value); }
     ScrollViewBuilder& style(const ScrollStyle& value) { scrollStyle_ = value; return *this; }
     ScrollViewBuilder& theme(const theme::ThemeColorTokens& tokens) { scrollStyle_ = ScrollStyle(tokens); return *this; }
     ScrollViewBuilder& contentKey(std::string value) { contentKey_ = std::move(value); return *this; }
-    ScrollViewBuilder& measureKey(std::string value) { return contentKey(std::move(value)); }
     ScrollViewBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }
     ScrollViewBuilder& transition(float duration, core::Ease ease = core::Ease::OutCubic) {
         transition_ = core::Transition::make(duration, ease);

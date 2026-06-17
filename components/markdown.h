@@ -20,7 +20,7 @@
 namespace components {
 
 struct MarkdownStyle {
-    explicit MarkdownStyle(const theme::ThemeColorTokens& tokens = theme::DarkThemeColors())
+    explicit MarkdownStyle(const theme::ThemeColorTokens& tokens = theme::dark())
         : text(theme::withOpacity(tokens.text, 0.78f)),
           heading(theme::withOpacity(tokens.text, 0.96f)),
           muted(theme::withOpacity(tokens.text, 0.58f)),
@@ -729,8 +729,6 @@ public:
     }
 
     MarkdownBuilder& markdown(std::string value) { markdown_ = std::move(value); return *this; }
-    MarkdownBuilder& text(std::string value) { return markdown(std::move(value)); }
-    MarkdownBuilder& source(std::string value) { return markdown(std::move(value)); }
     MarkdownBuilder& x(float value) { x_ = value; hasX_ = true; return *this; }
     MarkdownBuilder& y(float value) { y_ = value; hasY_ = true; return *this; }
     MarkdownBuilder& position(float xValue, float yValue) {
@@ -766,7 +764,6 @@ public:
     MarkdownBuilder& style(const MarkdownStyle& value) { style_ = value; return *this; }
     MarkdownBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = MarkdownStyle(tokens); return *this; }
     MarkdownBuilder& zIndex(int value) { zIndex_ = value; return *this; }
-    MarkdownBuilder& z(int value) { return zIndex(value); }
 
     void build() {
         const std::vector<detail::MarkdownBlock>& blocks = parsedBlocks();

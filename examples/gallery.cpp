@@ -78,7 +78,7 @@ void applyGlobalAnimationSpeed() {
 }
 
 components::theme::ThemeColorTokens themeColors() {
-    components::theme::ThemeColorTokens tokens = optionNight ? components::theme::DarkThemeColors() : components::theme::LightThemeColors();
+    components::theme::ThemeColorTokens tokens = optionNight ? components::theme::dark() : components::theme::light();
     tokens.primary = sampleColor;
     return tokens;
 }

@@ -11,7 +11,7 @@
 namespace components {
 
 struct ToastStyle {
-    ToastStyle() : ToastStyle(theme::DarkThemeColors()) {}
+    ToastStyle() : ToastStyle(theme::dark()) {}
 
     explicit ToastStyle(const theme::ThemeColorTokens& tokens) {
         background = tokens.dark
@@ -49,9 +49,7 @@ public:
     ToastBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = ToastStyle(tokens); return *this; }
     ToastBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }
     ToastBuilder& zIndex(int value) { zIndex_ = value; return *this; }
-    ToastBuilder& z(int value) { return zIndex(value); }
     ToastBuilder& duration(float seconds) { autoDismissSeconds_ = std::max(0.0f, seconds); return *this; }
-    ToastBuilder& autoDismiss(float seconds) { return duration(seconds); }
     ToastBuilder& onAutoDismiss(std::function<void()> callback) { onAutoDismiss_ = std::move(callback); return *this; }
     ToastBuilder& onDismiss(std::function<void()> callback) { onDismiss_ = std::move(callback); return *this; }
 

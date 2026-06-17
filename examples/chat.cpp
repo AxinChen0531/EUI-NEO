@@ -957,7 +957,7 @@ void composeSettingsDialog(eui::Ui& ui, const eui::Screen& screen, const std::st
                         .size(contentW, 34.0f)
                         .trackSize(42.0f, 24.0f)
                         .checked(settings.dark)
-                        .label("Night mode")
+                        .text("Night mode")
                         .onChange([](bool value) {
                             settings.dark = value;
                         })

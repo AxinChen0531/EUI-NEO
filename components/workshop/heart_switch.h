@@ -69,11 +69,6 @@ public:
         return *this;
     }
 
-    HeartSwitchBuilder& enabled(bool value = true) {
-        disabled_ = !value;
-        return *this;
-    }
-
     HeartSwitchBuilder& onChange(std::function<void(bool)> callback) {
         onChange_ = std::move(callback);
         return *this;

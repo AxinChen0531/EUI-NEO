@@ -11,7 +11,7 @@
 namespace components {
 
 struct TooltipStyle {
-    TooltipStyle() : TooltipStyle(theme::DarkThemeColors()) {}
+    TooltipStyle() : TooltipStyle(theme::dark()) {}
 
     explicit TooltipStyle(const theme::ThemeColorTokens& tokens) {
         background = tokens.dark
@@ -35,13 +35,11 @@ public:
 
     TooltipBuilder& source(const std::string& value) { sourceId_ = value; return *this; }
     TooltipBuilder& value(const std::string& value) { text_ = value; return *this; }
-    TooltipBuilder& text(const std::string& value) { return this->value(value); }
     TooltipBuilder& anchor(float x, float y) { anchorX_ = x; anchorY_ = y; return *this; }
     TooltipBuilder& bounds(float width, float height) { boundsWidth_ = width; boundsHeight_ = height; return *this; }
     TooltipBuilder& style(const TooltipStyle& value) { style_ = value; return *this; }
     TooltipBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = TooltipStyle(tokens); return *this; }
     TooltipBuilder& zIndex(int value) { zIndex_ = value; return *this; }
-    TooltipBuilder& z(int value) { return zIndex(value); }
 
     void build() {
         const float tooltipWidth = std::min(maxWidth_, std::max(minWidth_, boundsWidth_ - 42.0f));
