@@ -929,100 +929,69 @@ void composeEndpoint(eui::Ui& ui, const eui::Screen& screen, ChatState& state, c
 
 void composeSettingsDialog(eui::Ui& ui, const eui::Screen& screen, const std::string& owner) {
     const bool open = settings.dialogOwner == owner;
-    const float visible = open ? 1.0f : 0.0f;
     const float panelW = std::min(420.0f, std::max(0.0f, screen.width - 48.0f));
     const float panelH = 260.0f;
-    const float panelX = std::max(24.0f, (screen.width - panelW) * 0.5f);
-    const float panelY = std::max(24.0f, (screen.height - panelH) * 0.5f);
     const float inset = 20.0f;
     const float contentW = std::max(0.0f, panelW - inset * 2.0f);
 
-    ui.stack(owner + ".settings.dialog")
-        .size(screen.width, screen.height)
+    components::dialog(ui, owner + ".settings.dialog")
+        .theme(themeTokens())
+        .screen(screen.width, screen.height)
+        .size(panelW, panelH)
+        .open(open)
         .zIndex(5000)
+        .onClose([] {
+            settings.dialogOwner.clear();
+            wakeUi();
+        })
         .content([&] {
-            ui.rect(owner + ".settings.backdrop")
-                .size(screen.width, screen.height)
-                .color(settings.dark ? eui::Color{0.0f, 0.0f, 0.0f, 0.54f} : eui::Color{0.0f, 0.0f, 0.0f, 0.24f})
-                .opacity(visible)
-                .disabled(!open)
-                .transition(0.14f)
-                .animate(eui::AnimProperty::Opacity)
-                .onClick([] {
-                    settings.dialogOwner.clear();
-                    wakeUi();
-                })
-                .build();
-
-            ui.stack(owner + ".settings.panel")
-                .position(panelX, panelY)
-                .size(panelW, panelH)
-                .opacity(visible)
-                .translateY(open ? 0.0f : 12.0f)
-                .scale(open ? 1.0f : 0.97f)
-                .disabled(!open)
-                .transition(0.14f)
-                .animate(eui::AnimProperty::Opacity | eui::AnimProperty::Transform)
+            ui.column(owner + ".settings.dialog.content")
+                .position(inset, inset)
+                .size(contentW, panelH - inset * 2.0f)
+                .gap(14.0f)
                 .content([&] {
-                    components::card(ui, owner + ".settings.card")
-                        .width(panelW)
-                        .height(panelH)
-                        .padding(inset)
-                        .color(surfaceColor())
-                        .radius(18.0f)
-                        .border(1.0f, borderColor())
-                        .shadow({true, {0.0f, 8.0f}, 24.0f, 0.0f, shadowColor()})
+                    textBlock(ui, owner + ".settings.title", contentW, 32.0f, "Settings", 24.0f, textColor());
+                    textBlock(ui, owner + ".settings.note", contentW, 24.0f, "Theme changes apply to every chat window.", 14.0f, mutedTextColor());
+
+                    components::toggleSwitch(ui, owner + ".settings.dark")
+                        .theme(themeTokens())
+                        .size(contentW, 34.0f)
+                        .trackSize(42.0f, 24.0f)
+                        .checked(settings.dark)
+                        .label("Night mode")
+                        .onChange([](bool value) {
+                            settings.dark = value;
+                            wakeUi();
+                        })
+                        .build();
+
+                    ui.row(owner + ".settings.accent.row")
+                        .size(contentW, 42.0f)
+                        .gap(12.0f)
                         .content([&] {
-                            ui.column(owner + ".settings.content")
-                                .size(contentW, panelH - inset * 2.0f)
-                                .gap(14.0f)
-                                .content([&] {
-                                    textBlock(ui, owner + ".settings.title", contentW, 32.0f, "Settings", 24.0f, textColor());
-                                    textBlock(ui, owner + ".settings.note", contentW, 24.0f, "Theme changes apply to every chat window.", 14.0f, mutedTextColor());
-
-                                    components::toggleSwitch(ui, owner + ".settings.dark")
-                                        .theme(themeTokens())
-                                        .size(contentW, 34.0f)
-                                        .trackSize(42.0f, 24.0f)
-                                        .checked(settings.dark)
-                                        .label("Night mode")
-                                        .onChange([](bool value) {
-                                            settings.dark = value;
-                                            wakeUi();
-                                        })
-                                        .build();
-
-                                    ui.row(owner + ".settings.accent.row")
-                                        .size(contentW, 42.0f)
-                                        .gap(12.0f)
-                                        .content([&] {
-                                            textBlock(ui, owner + ".settings.accent.label", 86.0f, 38.0f, "Theme", 15.0f, textColor());
-                                            components::segmented(ui, owner + ".settings.accent")
-                                                .theme(themeTokens())
-                                                .size(std::max(0.0f, contentW - 98.0f), 38.0f)
-                                                .items({"Blue", "Purple", "Green", "Amber"})
-                                                .selected(settings.accent)
-                                                .fontSize(13.0f)
-                                                .onChange([](int value) {
-                                                    settings.accent = value;
-                                                    wakeUi();
-                                                })
-                                                .build();
-                                        })
-                                        .build();
-
-                                    ui.row(owner + ".settings.actions")
-                                        .size(contentW, 38.0f)
-                                        .justifyContent(eui::Align::END)
-                                        .content([&] {
-                                            button(ui, owner + ".settings.close", 96.0f, "Done", true, [] {
-                                                settings.dialogOwner.clear();
-                                                wakeUi();
-                                            });
-                                        })
-                                        .build();
+                            textBlock(ui, owner + ".settings.accent.label", 86.0f, 38.0f, "Theme", 15.0f, textColor());
+                            components::segmented(ui, owner + ".settings.accent")
+                                .theme(themeTokens())
+                                .size(std::max(0.0f, contentW - 98.0f), 38.0f)
+                                .items({"Blue", "Purple", "Green", "Amber"})
+                                .selected(settings.accent)
+                                .fontSize(13.0f)
+                                .onChange([](int value) {
+                                    settings.accent = value;
+                                    wakeUi();
                                 })
                                 .build();
+                        })
+                        .build();
+
+                    ui.row(owner + ".settings.actions")
+                        .size(contentW, 38.0f)
+                        .justifyContent(eui::Align::END)
+                        .content([&] {
+                            button(ui, owner + ".settings.close", 96.0f, "Done", true, [] {
+                                settings.dialogOwner.clear();
+                                wakeUi();
+                            });
                         })
                         .build();
                 })
