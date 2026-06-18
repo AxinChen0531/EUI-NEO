@@ -123,6 +123,14 @@ inline void Runtime::render(int windowWidth, int windowHeight, float dpiScale, c
         return;
     }
 
+    const bool hasRenderableContent = !ui_.roots().empty();
+    if (!hasRenderableContent) {
+        renderBackend->clear(clearColor);
+        dirtyRects_.clear();
+        fullPaintRequested_ = false;
+        return;
+    }
+
     if (!renderBackend->ensureRenderCache(windowWidth, windowHeight)) {
         renderBackend->clear(clearColor);
         renderDirect(*renderBackend, windowWidth, windowHeight, dpiScale);
@@ -134,9 +142,16 @@ inline void Runtime::render(int windowWidth, int windowHeight, float dpiScale, c
         fullPaintRequested_ = true;
     }
 
-    const std::vector<Rect> dirtyRects = core::dsl::resolveDirtyRects(dirtyRects_, fullPaintRequested_, windowWidth, windowHeight, dpiScale);
-    if (dirtyRects.empty() && !fullPaintRequested_) {
+    if (!fullPaintRequested_ && dirtyRects_.empty()) {
         renderBackend->blitRenderCache(windowWidth, windowHeight);
+        return;
+    }
+
+    const std::vector<Rect> dirtyRects = fullPaintRequested_
+        ? std::vector<Rect>{}
+        : core::dsl::resolveDirtyRects(dirtyRects_, windowWidth, windowHeight, dpiScale);
+    if (!fullPaintRequested_ && dirtyRects.empty()) {
+        dirtyRects_.clear();
         return;
     }
 
