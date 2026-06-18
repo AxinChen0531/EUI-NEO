@@ -172,6 +172,7 @@ inline void Runtime::renderRect(
     instance.primitive->setBlur(toPixels(instance.blur.value(), dpiScale));
     instance.primitive->setOpacity(instance.opacity.value() * renderTransform.opacity);
     instance.primitive->setTransformMatrix(combinedPrimitiveMatrix(renderTransform, frame, transform));
+    ++core::render::currentRenderFrameStats().rectDraws;
     instance.primitive->render(windowWidth, windowHeight);
 }
 
@@ -198,6 +199,7 @@ inline void Runtime::renderPolygon(
     instance.primitive->setColor(instance.color.value());
     instance.primitive->setOpacity(instance.opacity.value() * renderTransform.opacity);
     instance.primitive->setTransformMatrix(combinedPrimitiveMatrix(renderTransform, frame, transform));
+    ++core::render::currentRenderFrameStats().polygonDraws;
     instance.primitive->render(windowWidth, windowHeight);
 }
 
@@ -249,6 +251,7 @@ inline void Runtime::prepareText(
     instance.primitive->setHorizontalAlign(instance.horizontalAlign);
     instance.primitive->setVerticalAlign(instance.verticalAlign);
     instance.primitive->setLineHeight(lineHeight);
+    ++core::render::currentRenderFrameStats().textPrepares;
     instance.primitive->prepare();
 }
 
@@ -300,6 +303,7 @@ inline void Runtime::renderText(
     instance.primitive->setHorizontalAlign(instance.horizontalAlign);
     instance.primitive->setVerticalAlign(instance.verticalAlign);
     instance.primitive->setLineHeight(lineHeight);
+    ++core::render::currentRenderFrameStats().textDraws;
     instance.primitive->render(windowWidth, windowHeight);
 }
 
@@ -331,6 +335,7 @@ inline void Runtime::renderImage(
                                           toPixels(instance.coverViewportSize.y, dpiScale)},
                                          {toPixels(instance.coverViewportOffset.x, dpiScale),
                                           toPixels(instance.coverViewportOffset.y, dpiScale)});
+    ++core::render::currentRenderFrameStats().imageDraws;
     instance.primitive->render(windowWidth, windowHeight);
 }
 

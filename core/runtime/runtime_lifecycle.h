@@ -123,57 +123,87 @@ inline void Runtime::render(int windowWidth, int windowHeight, float dpiScale, c
         return;
     }
 
+    core::render::beginRenderFrameStats(windowWidth, windowHeight);
+    core::render::RenderFrameStats& stats = core::render::currentRenderFrameStats();
+
     const bool hasRenderableContent = !ui_.roots().empty();
     if (!hasRenderableContent) {
+        ++stats.clearCalls;
         renderBackend->clear(clearColor);
         dirtyRects_.clear();
         fullPaintRequested_ = false;
+        core::render::publishRenderFrameStats();
         return;
     }
 
     if (!renderBackend->ensureRenderCache(windowWidth, windowHeight)) {
+        ++stats.clearCalls;
         renderBackend->clear(clearColor);
+        ++stats.renderDirectPasses;
         renderDirect(*renderBackend, windowWidth, windowHeight, dpiScale);
         dirtyRects_.clear();
         fullPaintRequested_ = false;
+        core::render::publishRenderFrameStats();
         return;
     }
+    stats.usedRenderCache = true;
     if (renderBackend->renderCacheWasRecreated()) {
         fullPaintRequested_ = true;
+        stats.renderCacheRecreated = true;
     }
 
     if (!fullPaintRequested_ && dirtyRects_.empty()) {
+        stats.blitPixels = static_cast<std::uint64_t>(std::max(0, windowWidth)) *
+                           static_cast<std::uint64_t>(std::max(0, windowHeight));
+        ++stats.cacheBlits;
         renderBackend->blitRenderCache(windowWidth, windowHeight);
+        core::render::publishRenderFrameStats();
         return;
     }
 
+    stats.fullPaint = fullPaintRequested_;
     const std::vector<Rect> dirtyRects = fullPaintRequested_
         ? std::vector<Rect>{}
         : core::dsl::resolveDirtyRects(dirtyRects_, windowWidth, windowHeight, dpiScale);
     if (!fullPaintRequested_ && dirtyRects.empty()) {
         dirtyRects_.clear();
+        core::render::publishRenderFrameStats();
         return;
+    }
+    stats.dirtyRectCount = static_cast<int>(dirtyRects.size());
+    for (const Rect& dirty : dirtyRects) {
+        const float width = std::max(0.0f, dirty.width);
+        const float height = std::max(0.0f, dirty.height);
+        stats.dirtyPixels += static_cast<std::uint64_t>(width * height);
     }
 
     renderBackend->beginRenderCacheFrame(windowWidth, windowHeight);
 
     if (fullPaintRequested_) {
         renderBackend->setScissor(false, {}, windowHeight);
+        ++stats.clearCalls;
         renderBackend->clear(clearColor);
+        ++stats.renderDirectPasses;
         renderDirect(*renderBackend, windowWidth, windowHeight, dpiScale);
     } else {
         for (const Rect& dirty : dirtyRects) {
             renderBackend->setScissor(true, dirty, windowHeight);
+            ++stats.clearCalls;
             renderBackend->clear(clearColor);
+            ++stats.renderDirectPasses;
             renderDirect(*renderBackend, windowWidth, windowHeight, dpiScale, &dirty);
         }
         renderBackend->setScissor(false, {}, windowHeight);
     }
 
     renderBackend->endRenderCacheFrame();
+    stats.blitPixels = static_cast<std::uint64_t>(std::max(0, windowWidth)) *
+                       static_cast<std::uint64_t>(std::max(0, windowHeight));
+    ++stats.cacheBlits;
     renderBackend->blitRenderCache(windowWidth, windowHeight);
     dirtyRects_.clear();
     fullPaintRequested_ = false;
+    core::render::publishRenderFrameStats();
 }
 
 inline void Runtime::render(int windowWidth, int windowHeight, float dpiScale) {

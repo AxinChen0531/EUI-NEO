@@ -37,6 +37,26 @@ struct TextDrawCommand {
     TextAtlasPageData colorAtlas{};
 };
 
+struct RenderFrameStats {
+    bool rendered = false;
+    bool fullPaint = false;
+    bool usedRenderCache = false;
+    bool renderCacheRecreated = false;
+    int framebufferWidth = 0;
+    int framebufferHeight = 0;
+    int dirtyRectCount = 0;
+    std::uint64_t dirtyPixels = 0;
+    std::uint64_t blitPixels = 0;
+    int clearCalls = 0;
+    int renderDirectPasses = 0;
+    int cacheBlits = 0;
+    int rectDraws = 0;
+    int polygonDraws = 0;
+    int textPrepares = 0;
+    int textDraws = 0;
+    int imageDraws = 0;
+};
+
 class RenderBackend {
 public:
     using TextureHandle = void*;
@@ -105,6 +125,32 @@ inline RenderBackend*& activeRenderBackendSlot() {
 
 inline RenderBackend* activeRenderBackend() {
     return activeRenderBackendSlot();
+}
+
+inline RenderFrameStats& currentRenderFrameStats() {
+    static thread_local RenderFrameStats stats;
+    return stats;
+}
+
+inline RenderFrameStats& lastRenderFrameStatsSlot() {
+    static thread_local RenderFrameStats stats;
+    return stats;
+}
+
+inline void beginRenderFrameStats(int framebufferWidth, int framebufferHeight) {
+    RenderFrameStats& stats = currentRenderFrameStats();
+    stats = {};
+    stats.rendered = true;
+    stats.framebufferWidth = framebufferWidth;
+    stats.framebufferHeight = framebufferHeight;
+}
+
+inline void publishRenderFrameStats() {
+    lastRenderFrameStatsSlot() = currentRenderFrameStats();
+}
+
+inline const RenderFrameStats& lastRenderFrameStats() {
+    return lastRenderFrameStatsSlot();
 }
 
 class ScopedRenderBackend {
