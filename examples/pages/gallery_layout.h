@@ -175,7 +175,7 @@ struct GalleryLayoutPage {
 
         components::card(ui, "layout.scroll")
             .width(width)
-            .height(246.0f)
+            .height(266.0f)
             .padding(inset)
             .theme(themeColors())
             .content([&] {
@@ -184,6 +184,7 @@ struct GalleryLayoutPage {
 
                 components::scrollView(ui, "layout.scroll.viewport")
                     .theme(themeColors())
+                    .position(0.0f, 70.0f)
                     .size(contentWidth, 144.0f)
                     .offset(localScroll)
                     .gap(8.0f)
@@ -505,7 +506,7 @@ struct GalleryLayoutPage {
         constexpr float alignHeight = 212.0f;
         constexpr float clipHeight = 196.0f;
         constexpr float fillWrapHeight = 232.0f;
-        constexpr float scrollHeight = 246.0f;
+        constexpr float scrollHeight = 266.0f;
         constexpr float loaderHeight = 230.0f;
         const float leftColumnHeight = rowColumnHeight + flexHeight + fillWrapHeight + responsiveHeight + loaderHeight + gap * 4.0f;
         const float rightColumnHeight = stackHeight + alignHeight + clipHeight + scrollHeight + gap * 3.0f;
