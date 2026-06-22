@@ -3,6 +3,10 @@
 #include "core/render/render_backend.h"
 #include "core/window/window_types.h"
 
+#include <cstddef>
+#include <cstdint>
+#include <vector>
+
 namespace core::render::opengl {
 
 class OpenGLRenderBackend final : public RenderBackend {
@@ -61,6 +65,12 @@ private:
     void bindTexture2D(unsigned int texture);
     void setBlendEnabled(bool enabled);
     void setStandardAlphaBlend();
+    std::vector<core::Rect> resolveRenderCacheBlitRects(int width,
+                                                        int height,
+                                                        RenderCacheBlitMode mode,
+                                                        const std::vector<core::Rect>& dirtyRects);
+    void recordRenderCacheBlitHistory(std::uint64_t generation, bool fullSync, const std::vector<core::Rect>& rects);
+    void invalidateRenderCacheSync();
 
     core::window::Handle window_ = nullptr;
     RenderBackend* shareContext_ = nullptr;
@@ -75,6 +85,15 @@ private:
     int framebufferWidth_ = 0;
     int framebufferHeight_ = 0;
     core::Rect cacheRenderArea_{};
+    struct RenderCacheHistoryEntry {
+        std::uint64_t generation = 0;
+        bool full = false;
+        std::vector<core::Rect> rects;
+    };
+    std::uint64_t renderCacheGeneration_ = 0;
+    std::vector<std::uint64_t> backbufferCacheGenerations_{0, 0};
+    std::vector<RenderCacheHistoryEntry> renderCacheHistory_;
+    std::size_t currentBackbuffer_ = 0;
     unsigned int imageVao_ = 0;
     unsigned int imageVbo_ = 0;
     unsigned int imageShaderProgram_ = 0;

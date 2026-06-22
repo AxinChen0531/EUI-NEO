@@ -227,6 +227,9 @@ void OpenGLRenderBackend::present() {
     stats.backendPresentPixels += static_cast<std::uint64_t>(std::max(0, framebufferWidth_)) *
                                   static_cast<std::uint64_t>(std::max(0, framebufferHeight_));
     stats.backendIncrementalPresentSupported = damagePresentSupported_ ? 1 : 0;
+    if (!backbufferCacheGenerations_.empty()) {
+        currentBackbuffer_ = (currentBackbuffer_ + 1) % backbufferCacheGenerations_.size();
+    }
 }
 
 bool OpenGLRenderBackend::ensureRenderCache(int width, int height) {
@@ -263,6 +266,7 @@ bool OpenGLRenderBackend::ensureRenderCache(int width, int height) {
     cacheWidth_ = width;
     cacheHeight_ = height;
     cacheRecreated_ = true;
+    invalidateRenderCacheSync();
     return true;
 }
 
@@ -281,6 +285,7 @@ void OpenGLRenderBackend::releaseRenderCache() {
     }
     cacheWidth_ = 0;
     cacheHeight_ = 0;
+    invalidateRenderCacheSync();
     resetStateCache();
 }
 
@@ -309,21 +314,112 @@ void OpenGLRenderBackend::blitRenderCache(int width,
                                           int height,
                                           RenderCacheBlitMode mode,
                                           const std::vector<core::Rect>& dirtyRects) {
-    (void)mode;
-    (void)dirtyRects;
-    const core::Rect fullRect = fullRenderRect(width, height);
+    std::vector<core::Rect> blitRects = resolveRenderCacheBlitRects(width, height, mode, dirtyRects);
+    if (blitRects.empty()) {
+        return;
+    }
     core::render::RenderFrameStats& stats = core::render::currentRenderFrameStats();
-    ++stats.cacheBlits;
-    ++stats.backendCopyRegions;
-    stats.blitPixels += renderRectAreaPixels(fullRect);
+    stats.cacheBlits += static_cast<int>(blitRects.size());
+    stats.backendCopyRegions += static_cast<int>(blitRects.size());
+    stats.blitPixels += renderRectAreaPixels(blitRects);
 
     setScissor(false, {}, height);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, cacheFramebuffer_);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-    glBlitFramebuffer(0, 0, width, height,
-                      0, 0, width, height,
-                      GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    for (const core::Rect& rect : blitRects) {
+        const GLint left = static_cast<GLint>(rect.x);
+        const GLint right = static_cast<GLint>(rect.x + rect.width);
+        const GLint top = static_cast<GLint>(rect.y);
+        const GLint bottom = static_cast<GLint>(rect.y + rect.height);
+        glBlitFramebuffer(left, height - bottom, right, height - top,
+                          left, height - bottom, right, height - top,
+                          GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    if (currentBackbuffer_ < backbufferCacheGenerations_.size()) {
+        backbufferCacheGenerations_[currentBackbuffer_] = renderCacheGeneration_;
+    }
+}
+
+std::vector<core::Rect> OpenGLRenderBackend::resolveRenderCacheBlitRects(int width,
+                                                                         int height,
+                                                                         RenderCacheBlitMode mode,
+                                                                         const std::vector<core::Rect>& dirtyRects) {
+    constexpr std::size_t kMaxBlitRects = 16;
+    constexpr double kMaxBlitAreaRatio = 0.65;
+
+    width = std::min(std::max(1, width), std::max(1, cacheWidth_));
+    height = std::min(std::max(1, height), std::max(1, cacheHeight_));
+    const core::Rect fullRect = fullRenderRect(width, height);
+    auto useFull = [&] {
+        return std::vector<core::Rect>{fullRect};
+    };
+
+    const bool cacheChanged = mode == RenderCacheBlitMode::Full || mode == RenderCacheBlitMode::Dirty;
+    if (cacheChanged) {
+        ++renderCacheGeneration_;
+        const bool updateFull = mode == RenderCacheBlitMode::Full;
+        const std::vector<core::Rect> updateRects = updateFull
+            ? std::vector<core::Rect>{fullRect}
+            : clampRenderRects(dirtyRects, width, height);
+        recordRenderCacheBlitHistory(renderCacheGeneration_, updateFull || updateRects.empty(), updateRects);
+    } else if (renderCacheGeneration_ == 0) {
+        renderCacheGeneration_ = 1;
+        recordRenderCacheBlitHistory(renderCacheGeneration_, true, {fullRect});
+    }
+
+    if (mode == RenderCacheBlitMode::Full || currentBackbuffer_ >= backbufferCacheGenerations_.size()) {
+        return useFull();
+    }
+
+    const std::uint64_t syncedGeneration = backbufferCacheGenerations_[currentBackbuffer_];
+    if (syncedGeneration == renderCacheGeneration_) {
+        return {};
+    }
+    if (syncedGeneration == 0 || syncedGeneration > renderCacheGeneration_) {
+        return useFull();
+    }
+
+    std::vector<core::Rect> requiredRects;
+    for (std::uint64_t generation = syncedGeneration + 1; generation <= renderCacheGeneration_; ++generation) {
+        const auto found = std::find_if(renderCacheHistory_.begin(), renderCacheHistory_.end(), [&](const RenderCacheHistoryEntry& entry) {
+            return entry.generation == generation;
+        });
+        if (found == renderCacheHistory_.end() || found->full) {
+            return useFull();
+        }
+        requiredRects.insert(requiredRects.end(), found->rects.begin(), found->rects.end());
+    }
+
+    requiredRects = mergeRenderRects(clampRenderRects(requiredRects, width, height));
+    const double framePixels = static_cast<double>(std::max(1, width)) * static_cast<double>(std::max(1, height));
+    if (requiredRects.empty() ||
+        requiredRects.size() > kMaxBlitRects ||
+        static_cast<double>(renderRectAreaPixels(requiredRects)) > framePixels * kMaxBlitAreaRatio) {
+        return useFull();
+    }
+    return requiredRects;
+}
+
+void OpenGLRenderBackend::recordRenderCacheBlitHistory(std::uint64_t generation,
+                                                       bool fullSync,
+                                                       const std::vector<core::Rect>& rects) {
+    constexpr std::size_t kMaxHistoryEntries = 32;
+    RenderCacheHistoryEntry entry;
+    entry.generation = generation;
+    entry.full = fullSync;
+    entry.rects = fullSync ? std::vector<core::Rect>{} : rects;
+    renderCacheHistory_.push_back(std::move(entry));
+    while (renderCacheHistory_.size() > kMaxHistoryEntries) {
+        renderCacheHistory_.erase(renderCacheHistory_.begin());
+    }
+}
+
+void OpenGLRenderBackend::invalidateRenderCacheSync() {
+    renderCacheGeneration_ = 0;
+    renderCacheHistory_.clear();
+    backbufferCacheGenerations_.assign(2, 0);
+    currentBackbuffer_ = 0;
 }
 
 void OpenGLRenderBackend::clear(const core::Color& color) {
